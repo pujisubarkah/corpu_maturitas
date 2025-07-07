@@ -31,8 +31,8 @@ export default function LoginPage() {
     <main className="flex flex-col min-h-screen bg-gray-100">
       {/* Navigation Bar */}
       <nav className="w-full bg-white shadow-sm px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img src="/logo-lan.png" alt="Logo LAN" className="h-15 w-auto" />
+        <div className="flex items-center gap-1">
+          <img src="/logo-lan.png" alt="Logo LAN" className="h-10 w-auto" />
         </div>
         <NavigationMenu>
           <NavigationMenuList>
@@ -68,7 +68,7 @@ export default function LoginPage() {
                 className="text-3xl font-extrabold leading-tight mb-2"
                 style={{ color: 'var(--corpu-primary)' }}
               >
-                Survei Maturitas Corpu 2025
+                Survei Maturitas Corpu Instansi
               </h1>
               <p className="text-sm text-gray-500">
                 Masuk ke akun anda untuk melanjutkan
