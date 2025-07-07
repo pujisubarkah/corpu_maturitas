@@ -49,6 +49,8 @@ export default function LoginPage() {
           </NavigationMenuList>
         </NavigationMenu>
       </nav>
+
+      {/* Body */}
       <div className="flex flex-1 items-center justify-center">
         <div className="flex bg-white rounded-xl shadow-lg overflow-hidden w-full max-w-3xl h-[80vh]">
           {/* Left: Picture */}
