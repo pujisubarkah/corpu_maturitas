@@ -1,14 +1,14 @@
 "use client"
 import React, { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { User, UserPlus, LogIn, EyeIcon, EyeOffIcon, KeyRound } from 'lucide-react';
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from '@/src/components/ui/navigation-menu';
 
@@ -32,18 +32,18 @@ export default function LoginPage() {
       {/* Navigation Bar */}
       <nav className="w-full bg-white shadow-sm px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <img src="/logo-lan.png" alt="Logo LAN" className="h-10 w-auto" />
+          <Image src="/logo-lan.png" alt="Logo LAN" width={40} height={40} className="h-10 w-auto" />
         </div>
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
               <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                <a href="/">Beranda</a>
+                <Link href="/">Beranda</Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                <a href="/login">Register</a>
+                <Link href="/login">Register</Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>
@@ -54,8 +54,8 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center">
         <div className="flex bg-white rounded-xl shadow-lg overflow-hidden w-full max-w-3xl h-[80vh]">
           {/* Left: Picture */}
-          <div className="hidden md:flex items-center justify-center bg-white w-1/2 p-0">
-            <img src="/login.jpg" alt="Login Illustration" className="h-full w-full object-cover" />
+          <div className="hidden md:flex items-center justify-center bg-white w-1/2 p-0 relative">
+            <Image src="/login.jpg" alt="Login Illustration" fill className="object-cover" />
           </div>
           {/* Right: Login Form */}
           <form
@@ -139,13 +139,13 @@ export default function LoginPage() {
             <div className="text-center text-sm mt-2 flex items-center justify-center gap-1">
               <span>Belum punya akun?</span>
               <UserPlus className="h-4 w-4 text-gray-500" />
-              <a
+              <Link
                 href="/register"
                 className="hover:underline font-bold"
                 style={{ color: 'var(--corpu-primary)' }}
               >
                 Daftar disini
-              </a>
+              </Link>
             </div>
             {/* Message */}
             {message && (
