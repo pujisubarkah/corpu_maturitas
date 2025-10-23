@@ -2,13 +2,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  navigationMenuTriggerStyle,
-} from '@/src/components/ui/navigation-menu';
+// navigation-menu removed (not used here)
 import { Menu, X } from 'lucide-react';
 
 export default function Navbar() {
