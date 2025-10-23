@@ -1,86 +1,107 @@
-"use client"
+"use client";
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
-// navigation-menu removed (not used here)
 import { Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
+  const navItems = [
+    { label: 'Beranda', href: '/' },
+    { label: 'Survey', href: '/input-survey' },
+    { label: 'Profile', href: '/profile' },
+    { label: 'Tentang', href: '/tentang' },
+    { label: 'Kontak', href: '/kontak' },
+  ];
+
+  const mobileNavItems = [...navItems, { label: 'Resources', href: '/resources' }];
+
   return (
-    <nav className="w-full bg-white shadow-md px-6 py-4 sticky top-0 z-50 border-b border-gray-100">
+  <nav className="w-full bg-white shadow-sm px-4 sm:px-6 py-3 sticky top-0 z-50 border-b border-gray-100 font-poppins">
       <div className="container mx-auto flex items-center justify-between gap-4">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold">CU</span>
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-3 sm:gap-4 group">
+          <div className="h-14 w-14 sm:h-16 sm:w-16 flex items-center justify-center overflow-hidden rounded-md bg-gray-50">
+            <img
+              src="/logo-lan.png"
+              alt="Logo LAN"
+              className="w-full h-full object-contain transition-transform group-hover:scale-105"
+            />
+          </div>
+          <div className="hidden sm:block">
+            <div className="text-xl sm:text-2xl font-bold text-blue-800 tracking-tight leading-tight font-poppins">
+              Survey Maturitas
             </div>
-            <div className="hidden sm:block">
-              <div className="text-lg font-bold text-gray-900">Survey Maturitas</div>
-              <div className="text-xs text-gray-500">Corpu Instansi</div>
+            <div className="text-xs sm:text-sm text-gray-600 font-medium mt-0.5 font-poppins">
+              Corpu Instansi
             </div>
-          </Link>
+          </div>
+        </Link>
+
+        {/* Desktop Navigation */}
+        <div className="hidden lg:flex items-center justify-center flex-1 gap-6">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm font-medium text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-3 py-2 rounded-md transition-colors duration-200"
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
 
-        {/* Center: Links */}
-        <div className="hidden lg:flex lg:items-center lg:justify-center lg:gap-6 flex-1">
-          <Link href="/" className="text-gray-700 hover:text-blue-600 hover:underline decoration-blue-300 decoration-2 underline-offset-4">Beranda</Link>
-          <Link href="/input-survey" className="text-gray-700 hover:text-blue-600 hover:underline decoration-blue-300 decoration-2 underline-offset-4">Survey</Link>
-          <Link href="/profile" className="text-gray-700 hover:text-blue-600 hover:underline decoration-blue-300 decoration-2 underline-offset-4">Profile</Link>
-          <Link href="/tentang" className="text-gray-700 hover:text-blue-600 hover:underline decoration-blue-300 decoration-2 underline-offset-4">Tentang</Link>
-          <Link href="/berita" className="text-gray-700 hover:text-blue-600 hover:underline decoration-blue-300 decoration-2 underline-offset-4">Resources</Link>
-          <Link href="/kontak" className="text-gray-700 hover:text-blue-600 hover:underline decoration-blue-300 decoration-2 underline-offset-4">Kontak</Link>
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-3">
-            <Button variant="ghost" asChild>
+        {/* Right Actions */}
+        <div className="flex items-center gap-2">
+          <div className="hidden lg:flex items-center">
+            <Button variant="ghost" asChild size="sm">
               <Link href="/login">Masuk</Link>
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">Daftar</Button>
           </div>
 
-          {/* Mobile menu toggle */}
+          {/* Mobile Menu Toggle */}
           <button
-            aria-label="Toggle menu"
+            aria-label="Toggle navigation menu"
             aria-expanded={isOpen}
-            className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors"
             onClick={() => setIsOpen(!isOpen)}
+            className="lg:hidden p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       <div
-        className={`lg:hidden transition-all duration-200 ease-in-out overflow-hidden ${isOpen ? 'max-h-[800px] py-3' : 'max-h-0'}`}
+        className={`lg:hidden transition-all duration-300 ease-in-out overflow-hidden ${
+          isOpen ? 'max-h-[400px] py-4 opacity-100' : 'max-h-0 opacity-0'
+        }`}
       >
-        <div className="container mx-auto px-2">
-          <div className="flex flex-col gap-2">
-            {['Beranda','Survey','Profile','Tentang','Resources','Kontak'].map((label) => {
-              const href = label === 'Beranda' ? '/' : `/${label.toLowerCase()}`
-              return (
-                <Link
-                  key={label}
-                  href={href}
-                  onClick={() => setIsOpen(false)}
-                  className="px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  {label}
-                </Link>
-              )
-            })}
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col gap-1">
+            {mobileNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-3 text-base font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
 
-            <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
-              <Button variant="ghost" asChild>
-                <Link href="/login" onClick={() => setIsOpen(false)}>Masuk</Link>
+            <div className="pt-3 mt-3 border-t border-gray-100 flex flex-col gap-2">
+              <Button variant="ghost" className="justify-start px-4" asChild>
+                <Link href="/login" onClick={() => setIsOpen(false)}>
+                  Masuk
+                </Link>
               </Button>
-              <Button asChild>
-                <Link href="/daftar" onClick={() => setIsOpen(false)}>Daftar</Link>
+              <Button className="w-full" asChild>
+                <Link href="/daftar" onClick={() => setIsOpen(false)}>
+                  Daftar
+                </Link>
               </Button>
             </div>
           </div>

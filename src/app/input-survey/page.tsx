@@ -271,7 +271,7 @@ export default function InputSurveyPage() {
 
         {/* Question Card */}
         <Card className="mb-8 shadow-lg border-0">
-          <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+          <CardHeader className="bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
             <CardTitle className="text-xl">
               <div className="text-sm font-normal text-blue-100 mb-2">
                 {currentQ.category}
