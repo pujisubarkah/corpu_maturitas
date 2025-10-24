@@ -121,7 +121,7 @@ export default function Navbar() {
 
   const navItems = [
     { label: 'Beranda', href: '/' },
-    { label: 'Survey', href: '/input-survey' },
+    { label: 'Panduan', href: '/panduan' },
     { label: 'Profile', href: '/profile' },
     { label: 'Tentang', href: '/tentang' },
     { label: 'Kontak', href: '/kontak' },

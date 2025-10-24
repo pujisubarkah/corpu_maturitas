@@ -17,6 +17,9 @@ export default function ProfilePage() {
     contact: '',
   })
 
+  // when true, keep `instansi` in sync with `name` (user can uncheck to edit manually)
+  const [useNameAsInstansi, setUseNameAsInstansi] = useState(true)
+
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -46,7 +49,9 @@ export default function ProfilePage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
+      // auto-sync instansi with name when enabled
+      ...(field === 'name' && useNameAsInstansi ? { instansi: value } : {}),
     }))
 
     // Clear error when user starts typing
@@ -56,6 +61,9 @@ export default function ProfilePage() {
         [field]: ''
       }))
     }
+
+    // if user types into instansi, disable auto-sync
+    if (field === 'instansi') setUseNameAsInstansi(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +93,7 @@ export default function ProfilePage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <Card className="max-w-md mx-auto">
           <CardContent className="text-center p-8">
             <div className="text-6xl mb-4">✅</div>
@@ -115,7 +123,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -175,10 +183,20 @@ export default function ProfilePage() {
                   <Input value={formData.instansiType} onChange={e => handleInputChange('instansiType', e.target.value)} placeholder="Kementerian, Lembaga, Pemda, dll" className={errors.instansiType ? 'border-red-500' : ''} />
                   {errors.instansiType && <p className="text-red-500 text-xs mt-1">{errors.instansiType}</p>}
                 </div>
+                {/* Checkbox to control auto-fill of Instansi */}
+                <div className="flex items-center gap-2">
+                  <input id="useNameAsInstansi" type="checkbox" checked={useNameAsInstansi} onChange={e => {
+                    const checked = e.target.checked
+                    setUseNameAsInstansi(checked)
+                    if (checked) setFormData(prev => ({ ...prev, instansi: prev.name }))
+                  }} className="h-4 w-4" />
+                  <label htmlFor="useNameAsInstansi" className="text-sm text-gray-700">Gunakan Nama sebagai Instansi</label>
+                </div>
+
                 {/* Instansi */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Instansi *</label>
-                  <Input value={formData.instansi} onChange={e => handleInputChange('instansi', e.target.value)} placeholder="Nama Instansi" className={errors.instansi ? 'border-red-500' : ''} />
+                  <Input value={formData.instansi} onChange={e => handleInputChange('instansi', e.target.value)} placeholder="Nama Instansi" className={errors.instansi ? 'border-red-500' : ''} disabled={useNameAsInstansi} />
                   {errors.instansi && <p className="text-red-500 text-xs mt-1">{errors.instansi}</p>}
                 </div>
                 {/* Nomor Kontak */}
