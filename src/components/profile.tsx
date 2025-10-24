@@ -8,15 +8,13 @@ import { Input } from '../components/ui/input'
 export default function ProfilePage() {
   const [formData, setFormData] = useState({
     name: '',
+    nip: '',
     email: '',
     position: '',
-    department: '',
-    company: '',
-    phone: '',
-    location: '',
-    education: '',
-    experience: '',
-    age: ''
+    unit: '',
+    instansiType: '',
+    instansi: '',
+    contact: '',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -25,54 +23,22 @@ export default function ProfilePage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-
-    // Required fields validation
-    if (!formData.name.trim()) {
-      newErrors.name = 'Nama lengkap wajib diisi'
-    }
-
+    if (!formData.name.trim()) newErrors.name = 'Nama lengkap wajib diisi'
+    if (!formData.nip.trim()) newErrors.nip = 'NIP wajib diisi'
     if (!formData.email.trim()) {
       newErrors.email = 'Email wajib diisi'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Format email tidak valid'
     }
-
-    if (!formData.position.trim()) {
-      newErrors.position = 'Jabatan wajib diisi'
+    if (!formData.position.trim()) newErrors.position = 'Jabatan wajib diisi'
+    if (!formData.unit.trim()) newErrors.unit = 'Unit Kerja wajib diisi'
+    if (!formData.instansiType.trim()) newErrors.instansiType = 'Jenis Instansi wajib diisi'
+    if (!formData.instansi.trim()) newErrors.instansi = 'Instansi wajib diisi'
+    if (!formData.contact.trim()) {
+      newErrors.contact = 'Nomor kontak wajib diisi'
+    } else if (!/^[\+]?\d{10,15}$/.test(formData.contact)) {
+      newErrors.contact = 'Format nomor kontak tidak valid'
     }
-
-    if (!formData.department.trim()) {
-      newErrors.department = 'Departemen wajib diisi'
-    }
-
-    if (!formData.company.trim()) {
-      newErrors.company = 'Perusahaan/Instansi wajib diisi'
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Nomor telepon wajib diisi'
-    } else if (!/^[\+]?[0-9\-\s]{10,15}$/.test(formData.phone)) {
-      newErrors.phone = 'Format nomor telepon tidak valid'
-    }
-
-    if (!formData.location.trim()) {
-      newErrors.location = 'Lokasi wajib diisi'
-    }
-
-    if (!formData.education.trim()) {
-      newErrors.education = 'Pendidikan terakhir wajib diisi'
-    }
-
-    if (!formData.experience.trim()) {
-      newErrors.experience = 'Pengalaman kerja wajib diisi'
-    }
-
-    if (!formData.age.trim()) {
-      newErrors.age = 'Usia wajib diisi'
-    } else if (isNaN(Number(formData.age)) || Number(formData.age) < 18 || Number(formData.age) > 70) {
-      newErrors.age = 'Usia harus berupa angka antara 18-70 tahun'
-    }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -119,7 +85,7 @@ export default function ProfilePage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <Card className="max-w-md mx-auto">
           <CardContent className="text-center p-8">
             <div className="text-6xl mb-4">✅</div>
@@ -149,7 +115,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -175,182 +141,51 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Nama Lengkap */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nama Lengkap *
-                  </label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('name', e.target.value)}
-                    placeholder="Masukkan nama lengkap"
-                    className={errors.name ? 'border-red-500' : ''}
-                  />
-                  {errors.name && (
-                    <p className="text-red-500 text-xs mt-1">{errors.name}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
+                  <Input value={formData.name} onChange={e => handleInputChange('name', e.target.value)} placeholder="Masukkan nama lengkap" className={errors.name ? 'border-red-500' : ''} />
+                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                 </div>
-
+                {/* NIP */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">NIP *</label>
+                  <Input value={formData.nip} onChange={e => handleInputChange('nip', e.target.value)} placeholder="Masukkan NIP" className={errors.nip ? 'border-red-500' : ''} />
+                  {errors.nip && <p className="text-red-500 text-xs mt-1">{errors.nip}</p>}
+                </div>
                 {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email *
-                  </label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('email', e.target.value)}
-                    placeholder="contoh@email.com"
-                    className={errors.email ? 'border-red-500' : ''}
-                  />
-                  {errors.email && (
-                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                  <Input type="email" value={formData.email} onChange={e => handleInputChange('email', e.target.value)} placeholder="contoh@email.com" className={errors.email ? 'border-red-500' : ''} />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
-
                 {/* Jabatan */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Jabatan *
-                  </label>
-                  <Input
-                    value={formData.position}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('position', e.target.value)}
-                    placeholder="Manager, Staff, Direktur, dll"
-                    className={errors.position ? 'border-red-500' : ''}
-                  />
-                  {errors.position && (
-                    <p className="text-red-500 text-xs mt-1">{errors.position}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Jabatan *</label>
+                  <Input value={formData.position} onChange={e => handleInputChange('position', e.target.value)} placeholder="Jabatan" className={errors.position ? 'border-red-500' : ''} />
+                  {errors.position && <p className="text-red-500 text-xs mt-1">{errors.position}</p>}
                 </div>
-
-                {/* Departemen */}
+                {/* Unit Kerja */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Departemen *
-                  </label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('department', e.target.value)}
-                    placeholder="HR, IT, Finance, Operations, dll"
-                    className={errors.department ? 'border-red-500' : ''}
-                  />
-                  {errors.department && (
-                    <p className="text-red-500 text-xs mt-1">{errors.department}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Unit Kerja *</label>
+                  <Input value={formData.unit} onChange={e => handleInputChange('unit', e.target.value)} placeholder="Unit Kerja" className={errors.unit ? 'border-red-500' : ''} />
+                  {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit}</p>}
                 </div>
-
-                {/* Perusahaan/Instansi */}
+                {/* Jenis Instansi */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Perusahaan/Instansi *
-                  </label>
-                  <Input
-                    value={formData.company}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('company', e.target.value)}
-                    placeholder="Nama perusahaan atau instansi"
-                    className={errors.company ? 'border-red-500' : ''}
-                  />
-                  {errors.company && (
-                    <p className="text-red-500 text-xs mt-1">{errors.company}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Instansi *</label>
+                  <Input value={formData.instansiType} onChange={e => handleInputChange('instansiType', e.target.value)} placeholder="Kementerian, Lembaga, Pemda, dll" className={errors.instansiType ? 'border-red-500' : ''} />
+                  {errors.instansiType && <p className="text-red-500 text-xs mt-1">{errors.instansiType}</p>}
                 </div>
-
-                {/* Nomor Telepon */}
+                {/* Instansi */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nomor Telepon *
-                  </label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('phone', e.target.value)}
-                    placeholder="+62 812 3456 7890"
-                    className={errors.phone ? 'border-red-500' : ''}
-                  />
-                  {errors.phone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Instansi *</label>
+                  <Input value={formData.instansi} onChange={e => handleInputChange('instansi', e.target.value)} placeholder="Nama Instansi" className={errors.instansi ? 'border-red-500' : ''} />
+                  {errors.instansi && <p className="text-red-500 text-xs mt-1">{errors.instansi}</p>}
                 </div>
-
-                {/* Lokasi */}
+                {/* Nomor Kontak */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lokasi Kerja *
-                  </label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('location', e.target.value)}
-                    placeholder="Jakarta, Surabaya, Bandung, dll"
-                    className={errors.location ? 'border-red-500' : ''}
-                  />
-                  {errors.location && (
-                    <p className="text-red-500 text-xs mt-1">{errors.location}</p>
-                  )}
-                </div>
-
-                {/* Pendidikan Terakhir */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pendidikan Terakhir *
-                  </label>
-                  <select
-                    value={formData.education}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('education', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.education ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Pilih pendidikan terakhir</option>
-                    <option value="SMA/SMK">SMA/SMK</option>
-                    <option value="D3">Diploma 3 (D3)</option>
-                    <option value="S1">Sarjana (S1)</option>
-                    <option value="S2">Magister (S2)</option>
-                    <option value="S3">Doktor (S3)</option>
-                  </select>
-                  {errors.education && (
-                    <p className="text-red-500 text-xs mt-1">{errors.education}</p>
-                  )}
-                </div>
-
-                {/* Pengalaman Kerja */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pengalaman Kerja *
-                  </label>
-                  <select
-                    value={formData.experience}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('experience', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.experience ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Pilih pengalaman kerja</option>
-                    <option value="< 1 tahun">Kurang dari 1 tahun</option>
-                    <option value="1-3 tahun">1-3 tahun</option>
-                    <option value="4-6 tahun">4-6 tahun</option>
-                    <option value="7-10 tahun">7-10 tahun</option>
-                    <option value="> 10 tahun">Lebih dari 10 tahun</option>
-                  </select>
-                  {errors.experience && (
-                    <p className="text-red-500 text-xs mt-1">{errors.experience}</p>
-                  )}
-                </div>
-
-                {/* Usia */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Usia *
-                  </label>
-                  <Input
-                    type="number"
-                    value={formData.age}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('age', e.target.value)}
-                    placeholder="25"
-                    min="18"
-                    max="70"
-                    className={errors.age ? 'border-red-500' : ''}
-                  />
-                  {errors.age && (
-                    <p className="text-red-500 text-xs mt-1">{errors.age}</p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Kontak *</label>
+                  <Input value={formData.contact} onChange={e => handleInputChange('contact', e.target.value)} placeholder="Nomor Kontak" className={errors.contact ? 'border-red-500' : ''} />
+                  {errors.contact && <p className="text-red-500 text-xs mt-1">{errors.contact}</p>}
                 </div>
               </div>
 
