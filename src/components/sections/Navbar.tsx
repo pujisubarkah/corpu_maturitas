@@ -122,9 +122,8 @@ export default function Navbar() {
   const navItems = [
     { label: 'Beranda', href: '/' },
     { label: 'Panduan', href: '/panduan' },
-    { label: 'Profile', href: '/profile' },
+    { label: 'Maturitas', href: '/maturitas' },
     { label: 'Tentang', href: '/tentang' },
-    { label: 'Kontak', href: '/kontak' },
   ];
 
   const mobileNavItems = [...navItems, { label: 'Resources', href: '/resources' }];
