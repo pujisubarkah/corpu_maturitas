@@ -18,8 +18,10 @@ export default function ProfilePage() {
     unit: '',
     contact: '',
     instansi: '',
+    instansiKategori: '',
   })
 
+  const [instansiKategoriOptions, setInstansiKategoriOptions] = useState<Array<{id: number, kat_instansi: string}>>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -35,25 +37,6 @@ export default function ProfilePage() {
       .join(' ')
   }
 
-  // Function to get instansi_type_id from API
-  const getInstansiTypeId = async (slug: string): Promise<number> => {
-    if (!slug) return 1
-
-    try {
-      const response = await fetch(`/api/instansi-type?slug=${encodeURIComponent(slug)}`)
-      const result = await response.json()
-
-      if (result.success) {
-        return result.data.instansi_type_id
-      }
-    } catch (error) {
-      console.warn('Failed to fetch instansi type from API:', error)
-    }
-
-    // Fallback to default
-    return 1
-  }
-
   // Set instansi automatically when component mounts or slug changes
   useEffect(() => {
     if (slug) {
@@ -64,6 +47,24 @@ export default function ProfilePage() {
       }))
     }
   }, [slug])
+
+  // Load instansi kategori options
+  useEffect(() => {
+    const loadInstansiKategori = async () => {
+      try {
+        const response = await fetch('/api/instansi-type')
+        const result = await response.json()
+        
+        if (result.success) {
+          setInstansiKategoriOptions(result.data)
+        }
+      } catch (error) {
+        console.warn('Failed to load instansi kategori:', error)
+      }
+    }
+    
+    loadInstansiKategori()
+  }, [])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -81,6 +82,7 @@ export default function ProfilePage() {
     } else if (!/^[\+]?\d{10,15}$/.test(formData.contact)) {
       newErrors.contact = 'Format nomor kontak tidak valid'
     }
+    if (!formData.instansiKategori.trim()) newErrors.instansiKategori = 'Kategori instansi wajib dipilih'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -113,9 +115,6 @@ export default function ProfilePage() {
       // Generate a unique ID for the profile (using timestamp for demo)
       const profileId = Date.now()
       
-      // Get instansi_type_id from API
-      const instansiTypeId = await getInstansiTypeId(slug)
-      
       // Prepare data for API
       const profileData = {
         id: profileId,
@@ -126,7 +125,7 @@ export default function ProfilePage() {
         unit: formData.unit,
         contact: formData.contact,
         instansi: formData.instansi,
-        instansi_type_id: instansiTypeId,
+        instansi_type_id: parseInt(formData.instansiKategori),
         // Optional: user_id can be added when authentication is implemented
         // user_id: currentUserId,
       }
@@ -270,6 +269,27 @@ export default function ProfilePage() {
                   placeholder="Instansi akan terdeteksi otomatis" 
                 />
                 <p className="text-xs text-gray-500 mt-1">Instansi terdeteksi dari URL</p>
+              </div>
+
+              {/* Kategori Instansi - Full width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kategori Instansi *</label>
+                <select
+                  value={formData.instansiKategori}
+                  onChange={(e) => handleInputChange('instansiKategori', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.instansiKategori ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Pilih kategori instansi</option>
+                  {instansiKategoriOptions.map((kategori) => (
+                    <option key={kategori.id} value={kategori.id.toString()}>
+                      {kategori.kat_instansi}
+                    </option>
+                  ))}
+                </select>
+                {errors.instansiKategori && <p className="text-red-500 text-xs mt-1">{errors.instansiKategori}</p>}
+                <p className="text-xs text-gray-500 mt-1">Pilih kategori instansi sesuai dengan jenis lembaga Anda</p>
               </div>
 
               {/* Submit Button */}

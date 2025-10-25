@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '../../../lib/db'
-import { masterInstansiType } from '../../../lib/schemas/master_instansi_type'
+import { masterInstansiType } from '../../../lib/schemas/instansi'
 import { eq } from 'drizzle-orm'
 
 // GET: Get all master instansi types
@@ -41,11 +41,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'instansi_type_id harus berupa angka' }, { status: 400 })
     }
 
-    const values: Partial<{
-      instansi_id: number
-      nama_instansi: string
-      instansi_type_id: number
-    }> = {}
+    const values: {
+      id: number
+      instansi_id?: number
+      nama_instansi?: string
+      instansi_type_id?: number
+    } = {
+      id: Date.now(), // Generate ID using timestamp
+    }
 
     if (instansi_id !== undefined) values.instansi_id = instansi_id as number
     if (nama_instansi !== undefined) values.nama_instansi = nama_instansi as string
