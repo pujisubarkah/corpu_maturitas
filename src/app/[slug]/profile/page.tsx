@@ -1,7 +1,7 @@
 import ProfilePage from '@/src/components/profile'
 
 
-export default function SlugProfilePage({ params }: { params: { slug: string } }) {
+export default function SlugProfilePage() {
   return (
     <>
       <ProfilePage />

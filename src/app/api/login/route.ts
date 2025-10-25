@@ -16,12 +16,14 @@ export async function POST(request: Request) {
     if (user[0].password !== password) {
       return NextResponse.json({ error: 'Password salah' }, { status: 401 });
     }
+    // Exclude password from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userData } = user[0];
     return NextResponse.json({ user: userData });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Log the error to the server console for debugging
     console.error('API /api/login error:', err);
-    const message = err?.message ?? 'Terjadi kesalahan server';
+    const message = err instanceof Error ? err.message : 'Terjadi kesalahan server';
     // Return the actual error message during development to help diagnose the 500
     return NextResponse.json({ error: message }, { status: 500 });
   }

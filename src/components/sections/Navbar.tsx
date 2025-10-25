@@ -7,7 +7,7 @@ import { Button } from '@/src/components/ui/button';
 import { Menu, X, User, Lock, Eye, EyeOff } from 'lucide-react';
 
 // Komponen LoginForm sederhana
-function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -52,7 +52,7 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       } else {
         setMessage(data.error || 'Username atau password salah.');
       }
-    } catch (err) {
+    } catch {
       setMessage('Terjadi kesalahan server.');
     }
   };
@@ -117,7 +117,6 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
 
   const navItems = [
     { label: 'Beranda', href: '/' },
@@ -167,53 +166,16 @@ export default function Navbar() {
         {/* Right Actions */}
         <div className="flex items-center gap-2">
           <div className="hidden lg:flex items-center">
-            <Button
-              variant="ghost"
+            <Link
+              href="/login"
               className="text-lg font-bold text-gray-800 hover:text-blue-800 hover:bg-blue-50 px-5 py-3 rounded-xl transition-colors duration-200 drop-shadow-sm tracking-wide"
-              onClick={() => setShowLogin(true)}
             >
               Masuk
-            </Button>
+            </Link>
           </div>
 
           {/* Modal Login */}
-          {showLogin && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-linear-to-br from-blue-100/60 via-white/80 to-indigo-200/60 backdrop-blur-md transition-all duration-300">
-              <div className="bg-white/90 border border-blue-300 rounded-3xl shadow-2xl p-0 w-full max-w-4xl relative scale-100 animate-[fadeIn_0.3s_ease] overflow-hidden">
-                <button
-                  className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 transition-colors"
-                  onClick={() => setShowLogin(false)}
-                  aria-label="Tutup"
-                  style={{ zIndex: 10 }}
-                >
-                  <X className="h-7 w-7" />
-                </button>
-                <div className="flex flex-col md:flex-row items-stretch gap-0">
-                  <div className="flex flex-col items-center justify-center bg-linear-to-br from-blue-200/60 via-white/80 to-indigo-200/60 p-10 md:p-12 w-full md:w-1/2 border-r border-blue-100">
-                    <Image
-                      src="/logo-lan.png"
-                      alt="Logo LAN"
-                      width={140}
-                      height={140}
-                      className="mb-6 h-32 w-32 object-contain drop-shadow-xl"
-                    />
-                    <Image
-                      src="/login.jpg"
-                      alt="Login Illustration"
-                      width={260}
-                      height={200}
-                      className="rounded-xl object-cover shadow-lg"
-                    />
-                  </div>
-                  <div className="flex flex-col justify-center items-center flex-1 p-8 md:p-12">
-                    <h2 className="text-3xl font-extrabold text-blue-900 mb-4 tracking-tight drop-shadow">Login Pengguna</h2>
-                    <div className="text-base text-gray-500 mb-8 text-center max-w-xs">Masukkan username dan password untuk masuk ke aplikasi survei maturitas.</div>
-                    <LoginForm onSuccess={() => setShowLogin(false)} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Modal dihapus, tombol Masuk sekarang link ke /login */}
 
           {/* Mobile Menu Toggle */}
           <button
@@ -247,15 +209,10 @@ export default function Navbar() {
             ))}
 
             <div className="pt-3 mt-3 border-t border-gray-100 flex flex-col gap-2">
-              <Button
-                variant="ghost"
-                className="justify-start px-4"
-                onClick={() => {
-                  setShowLogin(true);
-                  setIsOpen(false);
-                }}
-              >
-                Masuk
+              <Button variant="ghost" className="justify-start px-4" asChild>
+                <Link href="/login" onClick={() => setIsOpen(false)}>
+                  Masuk
+                </Link>
               </Button>
               <Button className="w-full" asChild>
                 <Link href="/daftar" onClick={() => setIsOpen(false)}>

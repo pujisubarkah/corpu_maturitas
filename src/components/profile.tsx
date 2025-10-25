@@ -12,13 +12,8 @@ export default function ProfilePage() {
     email: '',
     position: '',
     unit: '',
-    instansiType: '',
-    instansi: '',
     contact: '',
   })
-
-  // when true, keep `instansi` in sync with `name` (user can uncheck to edit manually)
-  const [useNameAsInstansi, setUseNameAsInstansi] = useState(true)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -35,8 +30,6 @@ export default function ProfilePage() {
     }
     if (!formData.position.trim()) newErrors.position = 'Jabatan wajib diisi'
     if (!formData.unit.trim()) newErrors.unit = 'Unit Kerja wajib diisi'
-    if (!formData.instansiType.trim()) newErrors.instansiType = 'Jenis Instansi wajib diisi'
-    if (!formData.instansi.trim()) newErrors.instansi = 'Instansi wajib diisi'
     if (!formData.contact.trim()) {
       newErrors.contact = 'Nomor kontak wajib diisi'
     } else if (!/^[\+]?\d{10,15}$/.test(formData.contact)) {
@@ -50,8 +43,6 @@ export default function ProfilePage() {
     setFormData(prev => ({
       ...prev,
       [field]: value,
-      // auto-sync instansi with name when enabled
-      ...(field === 'name' && useNameAsInstansi ? { instansi: value } : {}),
     }))
 
     // Clear error when user starts typing
@@ -61,9 +52,6 @@ export default function ProfilePage() {
         [field]: ''
       }))
     }
-
-    // if user types into instansi, disable auto-sync
-    if (field === 'instansi') setUseNameAsInstansi(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -176,28 +164,6 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Unit Kerja *</label>
                   <Input value={formData.unit} onChange={e => handleInputChange('unit', e.target.value)} placeholder="Unit Kerja" className={errors.unit ? 'border-red-500' : ''} />
                   {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit}</p>}
-                </div>
-                {/* Jenis Instansi */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Instansi *</label>
-                  <Input value={formData.instansiType} onChange={e => handleInputChange('instansiType', e.target.value)} placeholder="Kementerian, Lembaga, Pemda, dll" className={errors.instansiType ? 'border-red-500' : ''} />
-                  {errors.instansiType && <p className="text-red-500 text-xs mt-1">{errors.instansiType}</p>}
-                </div>
-                {/* Checkbox to control auto-fill of Instansi */}
-                <div className="flex items-center gap-2">
-                  <input id="useNameAsInstansi" type="checkbox" checked={useNameAsInstansi} onChange={e => {
-                    const checked = e.target.checked
-                    setUseNameAsInstansi(checked)
-                    if (checked) setFormData(prev => ({ ...prev, instansi: prev.name }))
-                  }} className="h-4 w-4" />
-                  <label htmlFor="useNameAsInstansi" className="text-sm text-gray-700">Gunakan Nama sebagai Instansi</label>
-                </div>
-
-                {/* Instansi */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Instansi *</label>
-                  <Input value={formData.instansi} onChange={e => handleInputChange('instansi', e.target.value)} placeholder="Nama Instansi" className={errors.instansi ? 'border-red-500' : ''} disabled={useNameAsInstansi} />
-                  {errors.instansi && <p className="text-red-500 text-xs mt-1">{errors.instansi}</p>}
                 </div>
                 {/* Nomor Kontak */}
                 <div>

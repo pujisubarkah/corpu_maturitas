@@ -1,7 +1,6 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Header from '@/src/components/Header';
 
 export default function UserDashboard() {
   const params = useParams();
@@ -10,7 +9,6 @@ export default function UserDashboard() {
   return (
     <main className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow p-8">
-        <Header />
         <p className="text-lg text-gray-700 mb-6">
           Selamat datang, <span className="font-semibold text-blue-700">{slug}</span>!
         </p>

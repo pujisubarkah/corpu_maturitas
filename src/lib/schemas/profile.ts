@@ -1,4 +1,4 @@
-import { pgTable, serial, bigint, integer, varchar, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, bigint, integer, varchar, timestamp } from 'drizzle-orm/pg-core'
 
 export const profile = pgTable('profile', {
 	id: bigint('id', { mode: 'number' }).notNull().primaryKey(),

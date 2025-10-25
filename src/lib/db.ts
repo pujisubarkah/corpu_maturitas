@@ -12,8 +12,8 @@ if (!process.env.DATABASE_URL) {
 try {
 	const parsed = new URL(process.env.DATABASE_URL as string);
 	console.log('Connecting to database host:', parsed.hostname);
-} catch (e: any) {
-	console.error('Invalid DATABASE_URL format:', e?.message ?? e);
+} catch (e: unknown) {
+	console.error('Invalid DATABASE_URL format:', e instanceof Error ? e.message : e);
 	throw e;
 }
 

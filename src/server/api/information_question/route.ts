@@ -4,7 +4,6 @@ import { db } from "../../../lib/db"; // pastikan path ini sesuai dengan file ko
 // Update the path below to the correct location of your instrumentQuestion schema file
 // Update the path below to the correct location of your instrumentQuestion schema file
 import { instrumentQuestion } from "../../../lib/schemas/instrument_question";
-import { eq } from "drizzle-orm";
 
 // =========================
 // GET: Ambil semua data

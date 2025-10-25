@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 export default function HeroSection() {
   return (
-    <section className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white py-20">
+    <section className="relative bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 text-white py-20">
       <div className="absolute inset-0 bg-black/10"></div>
       <div className="container mx-auto px-6 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">

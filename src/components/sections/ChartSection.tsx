@@ -1,5 +1,6 @@
 "use client"
 import React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { BarChart3, PieChart, Users } from 'lucide-react';
 
@@ -86,7 +87,7 @@ export default function ChartSection() {
           
           {/* Gender Chart */}
           <Card className="shadow-lg border-0 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardHeader className="bg-linear-to-r from-blue-50 to-blue-100">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <PieChart className="h-5 w-5 text-blue-600" />
                 Berdasarkan Jenis Kelamin
@@ -155,7 +156,7 @@ export default function ChartSection() {
 
           {/* Institution Chart */}
           <Card className="shadow-lg border-0 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-green-100">
+            <CardHeader className="bg-linear-to-r from-green-50 to-green-100">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-green-600" />
                 Berdasarkan Instansi
@@ -183,7 +184,7 @@ export default function ChartSection() {
 
           {/* Education Chart */}
           <Card className="shadow-lg border-0 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100">
+            <CardHeader className="bg-linear-to-r from-purple-50 to-purple-100">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5 text-purple-600" />
                 Berdasarkan Pendidikan
@@ -228,7 +229,7 @@ export default function ChartSection() {
           
           {/* Response by Regions */}
           <Card className="shadow-lg border-0 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="bg-gradient-to-r from-orange-50 to-orange-100">
+            <CardHeader className="bg-linear-to-r from-orange-50 to-orange-100">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-orange-600" />
                 Responden Berdasarkan Wilayah
@@ -263,7 +264,7 @@ export default function ChartSection() {
 
           {/* Response by Role */}
           <Card className="shadow-lg border-0 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="bg-gradient-to-r from-teal-50 to-teal-100">
+            <CardHeader className="bg-linear-to-r from-teal-50 to-teal-100">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5 text-teal-600" />
                 Responden Berdasarkan Jabatan
@@ -297,7 +298,7 @@ export default function ChartSection() {
         </div>
 
         {/* Additional Insights */}
-        <div className="mt-12 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-8">
+        <div className="mt-12 bg-linear-to-r from-blue-50 to-purple-50 rounded-lg p-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             Key Insights dari Data Responden
           </h3>
@@ -338,18 +339,18 @@ export default function ChartSection() {
               Ingin berkontribusi dalam pengembangan Corporate University di Indonesia?
             </h4>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a 
+              <Link 
                 href="/input-survey" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center justify-center"
               >
                 Ikuti Survey Maturitas
-              </a>
-              <a 
+              </Link>
+              <Link 
                 href="/results" 
                 className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center justify-center"
               >
                 Lihat Contoh Hasil
-              </a>
+              </Link>
             </div>
           </div>
         </div>

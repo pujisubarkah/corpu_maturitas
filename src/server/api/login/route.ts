@@ -23,9 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Password salah' });
     }
     // Return user data (tanpa password)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userData } = user[0];
     return res.status(200).json({ user: userData });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: 'Terjadi kesalahan server' });
   }
 }

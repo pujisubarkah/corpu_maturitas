@@ -1,6 +1,7 @@
 "use client"
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   Phone, 
   Mail, 
@@ -21,9 +22,11 @@ export default function Footer() {
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-20 h-20 rounded-lg flex items-center justify-center overflow-hidden bg-white p-2">
-                <img
+                <Image
                   src="/logo-lan.png"
                   alt="Logo LAN"
+                  width={80}
+                  height={80}
                   className="w-full h-full object-contain"
                 />
               </div>

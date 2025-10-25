@@ -1,72 +1,136 @@
-"use client";
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { useParams } from 'next/navigation';
-import { Bell, Search } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react'
+import Image from 'next/image'
+import { useRouter, useParams } from 'next/navigation'
+import { Mail, ChevronDown, LogOut, Search, Key } from 'lucide-react'
 
 function initials(name?: string) {
-  if (!name) return 'U';
+  if (!name) return 'U'
   return name
     .split(' ')
     .map((p) => p[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase();
+    .toUpperCase()
 }
 
 export default function Header() {
-  const params = useParams();
-  const slug = params?.slug ?? '';
-  const [userName, setUserName] = useState<string | null>(null);
+  const params = useParams()
+  const router = useRouter()
+  const slug = params?.slug ?? ''
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const [userName, setUserName] = useState<string | null>(null)
+  const [unitKerja, setUnitKerja] = useState<string>('MAKARTI Dashboard')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const unreadCount = 0
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('currentUser');
+      const raw = localStorage.getItem('currentUser')
       if (raw) {
-        const u = JSON.parse(raw);
-        setUserName(u?.fullName ?? u?.full_name ?? u?.username ?? null);
+        const u = JSON.parse(raw)
+        setUserName(u?.fullName ?? u?.full_name ?? u?.username ?? null)
+        setUnitKerja(u?.unit_kerja ?? 'MAKARTI Dashboard')
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
-  }, []);
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.clear()
+    router.push('/login')
+  }
+
+  const handleChangePassword = () => {
+    router.push(`/${slug}/ganti_password`)
+  }
 
   return (
-    <header className="w-full bg-white rounded-lg shadow-sm p-4 mb-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-linear-to-br from-blue-100 to-indigo-100">
-            <Image src="/logo-lan.png" alt="Logo" width={40} height={40} className="object-contain" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Dashboard</h2>
-            <div className="text-sm text-gray-500">{slug ? `Pengguna: ${slug}` : 'Overview'}</div>
-          </div>
+    <header className="w-full h-16 bg-white border-b shadow-sm px-6 flex items-center justify-between fixed top-0 z-20">
+      {/* Kiri: Logo dan Judul */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-linear-to-br from-blue-100 to-indigo-100 shadow-sm">
+          <Image
+            src="/logo-lan.png"
+            alt="Logo"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold text-gray-800">{unitKerja}</h1>
+          <p className="text-xs text-gray-500">{slug ? `Pengguna: ${slug}` : 'Overview'}</p>
+        </div>
+      </div>
+
+      {/* Kanan: Search, Notification, dan Profil */}
+      <div className="flex items-center gap-4">
+        {/* Search */}
+        <div className="hidden md:flex items-center bg-gray-100 rounded-full px-3 py-1 gap-2">
+          <Search className="h-4 w-4 text-gray-500" />
+          <input
+            placeholder="Cari sesuatu..."
+            className="bg-transparent text-sm outline-none w-40"
+          />
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 gap-2">
-            <Search className="h-4 w-4 text-gray-500" />
-            <input placeholder="Search..." className="bg-transparent text-sm outline-none" />
-          </div>
+        {/* Notifikasi */}
+        <button className="relative p-2 hover:bg-gray-100 rounded-full transition-all">
+          <Mail className={`w-5 h-5 ${unreadCount > 0 ? 'text-blue-600' : 'text-gray-600'}`} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
 
-          <div className="relative">
-            <button className="relative p-2 rounded-full hover:bg-gray-100">
-              <Bell className="h-5 w-5 text-gray-600" />
-              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium leading-none text-white bg-red-500 rounded-full">3</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center font-semibold text-blue-700">{initials(userName ?? undefined)}</div>
-            <div className="hidden sm:block text-right">
-              <div className="text-sm text-gray-500">Signed in as</div>
+        {/* Profil Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex items-center gap-2 hover:bg-gray-100 px-2 py-1 rounded-lg transition-all"
+          >
+            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center font-semibold text-blue-700">
+              {initials(userName ?? undefined)}
+            </div>
+            <div className="hidden sm:block text-left">
+              <div className="text-xs text-gray-500">Masuk sebagai</div>
               <div className="text-sm font-medium text-gray-900">{userName ?? 'Guest'}</div>
             </div>
-          </div>
+            <ChevronDown className="w-4 h-4 text-gray-500" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg z-50 py-2 animate-fadeIn">
+              <button
+                onClick={handleChangePassword}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <Key className="w-4 h-4" /> Ganti Password
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" /> Keluar
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
-  );
+  )
 }

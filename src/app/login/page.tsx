@@ -1,93 +1,29 @@
 "use client"
-import React, { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Button } from '@/src/components/ui/button';
-import { User, UserPlus, LogIn, EyeIcon, EyeOffIcon, KeyRound } from 'lucide-react';
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  navigationMenuTriggerStyle,
-} from '@/src/components/ui/navigation-menu';
+import Navbar from '../../components/sections/Navbar';
+import Footer from '../../components/sections/Footer';
+// Import LoginForm dari Navbar
+import { LoginForm } from '../../components/sections/Navbar';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username === 'user' && password === 'password') {
-      setMessage('Login successful!');
-    } else {
-      setMessage('Invalid credentials.');
-    }
-  };
-
   return (
-    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-100 to-indigo-200">
-      <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center">
-        <Image src="/logo-lan.png" alt="Logo LAN" width={64} height={64} className="mb-6" />
-        <h1 className="text-2xl font-extrabold text-blue-900 mb-2 text-center drop-shadow">Login Pengguna</h1>
-        <p className="text-sm text-gray-500 mb-6 text-center">Masukkan username dan password untuk masuk ke aplikasi survei maturitas.</p>
-        <form onSubmit={handleSubmit} className="w-full space-y-6">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <User className="h-4 w-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              className="border rounded pl-10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full bg-gray-50"
-              required
-            />
+    <>
+      <Navbar />
+      <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-100 to-indigo-200 py-12 px-4">
+        <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl p-0 flex flex-col md:flex-row items-stretch overflow-hidden">
+          <div className="flex flex-col items-center justify-center bg-linear-to-br from-blue-200/60 via-white/80 to-indigo-200/60 p-10 md:p-12 w-full md:w-1/2 border-r border-blue-100">
+            <Image src="/logo-lan.png" alt="Logo LAN" width={140} height={140} className="mb-6 h-32 w-32 object-contain drop-shadow-xl" />
+            <Image src="/login.jpg" alt="Login Illustration" width={260} height={200} className="rounded-xl object-cover shadow-lg" />
           </div>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <KeyRound className="h-4 w-4" />
-            </span>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="border rounded pl-10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full bg-gray-50"
-              required
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-              onClick={() => setShowPassword((prev) => !prev)}
-              tabIndex={-1}
-            >
-              {showPassword ? (
-                <EyeOffIcon className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <EyeIcon className="h-4 w-4" aria-hidden="true" />
-              )}
-              <span className="sr-only">
-                {showPassword ? 'Hide password' : 'Show password'}
-              </span>
-            </Button>
+          <div className="flex flex-col justify-center items-center flex-1 p-8 md:p-12">
+            <h2 className="text-3xl font-extrabold text-blue-900 mb-4 tracking-tight drop-shadow">Login Pengguna</h2>
+            <div className="text-base text-gray-500 mb-8 text-center max-w-xs">Masukkan username dan password untuk masuk ke aplikasi survei maturitas.</div>
+            {/* Gunakan LoginForm dari Navbar, onSuccess bisa redirect ke halaman utama atau dashboard */}
+            <LoginForm onSuccess={() => { window.location.href = '/'; }} />
           </div>
-          <Button
-            type="submit"
-            className="w-full text-base font-semibold py-2 rounded-lg shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <LogIn className="mr-2" />Masuk
-          </Button>
-          {message && (
-            <div className="text-center text-sm mt-2 text-gray-600">{message}</div>
-          )}
-        </form>
-      </div>
-    </main>
+        </div>
+      </main>
+      <Footer />
+    </>
   );
 }

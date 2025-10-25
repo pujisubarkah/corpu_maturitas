@@ -59,7 +59,7 @@ const userMenu = [
     icon: FileText,
     children: [
           { title: "Profile", href: "/[slug]/profile" },
-      { title: "Panduan", href: "/[slug]/Survei" },
+      { title: "Survei", href: "/[slug]/Survei" },
     ],
   },
 ];
@@ -88,14 +88,13 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="hidden md:block md:fixed md:left-0 md:top-0 md:h-screen md:w-[260px] md:min-w-[260px] md:max-w-[260px] bg-white border-r p-4 shadow-md overflow-y-auto z-30">
+    <aside className="hidden md:block md:fixed md:left-0 md:top-16 md:h-[calc(100vh-4rem)] md:w-[260px] md:min-w-[260px] md:max-w-[260px] bg-white border-r p-4 shadow-md overflow-y-auto z-30">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
           {initials(user?.fullName ?? user?.username)}
         </div>
         <div className="truncate">
-          <div className="text-xs text-gray-500">Signed in as</div>
           <div className="text-sm font-semibold text-gray-800 truncate">
             {user?.fullName ?? user?.username ?? "Guest"}
           </div>
