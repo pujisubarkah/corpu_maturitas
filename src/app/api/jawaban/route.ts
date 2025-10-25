@@ -4,16 +4,27 @@ import { jawaban } from '../../../lib/schemas/jawaban'
 import { eq, and } from 'drizzle-orm'
 
 // Type definitions
+interface JawabanItem {
+  kategori_id: number;
+  kategori_nama: string;
+  pertanyaan_id: number;
+  pertanyaan_kode: string | null;
+  pertanyaan: string | null;
+  jawaban: string | number;
+  tipe_jawaban: string | null;
+  urutan: number | null;
+}
+
 interface JawabanInsert {
   instansi_id: number;
   tahun: number;
-  jawaban: Record<string, unknown>;
+  jawaban: JawabanItem[];
 }
 
 interface JawabanUpdate {
   instansi_id?: number;
   tahun?: number;
-  jawaban?: Record<string, unknown>;
+  jawaban?: JawabanItem[];
 }
 
 // GET: Get jawaban by id, or by instansi_id and tahun, or get all
@@ -90,8 +101,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'tahun wajib diisi dan harus berupa angka' }, { status: 400 })
     }
 
-    if (!jawabanData || typeof jawabanData !== 'object') {
-      return NextResponse.json({ success: false, message: 'jawaban wajib diisi dan harus berupa object' }, { status: 400 })
+    if (!jawabanData || !Array.isArray(jawabanData)) {
+      return NextResponse.json({ success: false, message: 'jawaban wajib diisi dan harus berupa array' }, { status: 400 })
     }
 
     // Check if jawaban already exists for this instansi_id and tahun
@@ -111,7 +122,7 @@ export async function POST(request: Request) {
     const values: JawabanInsert = {
       instansi_id: instansi_id as number,
       tahun: tahun as number,
-      jawaban: jawabanData as Record<string, unknown>,
+      jawaban: jawabanData as JawabanItem[],
     }
 
     const [inserted] = await db.insert(jawaban).values(values).returning()
@@ -172,10 +183,10 @@ export async function PUT(request: Request) {
     }
 
     if (jawabanData !== undefined) {
-      if (typeof jawabanData !== 'object') {
-        return NextResponse.json({ success: false, message: 'jawaban harus berupa object' }, { status: 400 })
+      if (!Array.isArray(jawabanData)) {
+        return NextResponse.json({ success: false, message: 'jawaban harus berupa array' }, { status: 400 })
       }
-      updateData.jawaban = jawabanData as Record<string, unknown>
+      updateData.jawaban = jawabanData as JawabanItem[]
     }
 
     await db.update(jawaban).set(updateData).where(eq(jawaban.id, id as number))

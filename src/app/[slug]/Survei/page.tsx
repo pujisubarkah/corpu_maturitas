@@ -200,8 +200,8 @@ export default function SurveiPage() {
         instansiId = Math.abs(hash) % 10000 + 1; // Keep it reasonable (1-10000)
       }
 
-      // Prepare answers data
-      const surveyAnswers: Record<string, {
+      // Prepare answers data as array for database trigger
+      const surveyAnswers: Array<{
         kategori_id: number;
         kategori_nama: string;
         pertanyaan_id: number;
@@ -210,12 +210,12 @@ export default function SurveiPage() {
         jawaban: string | number;
         tipe_jawaban: string | null;
         urutan: number | null;
-      }> = {};
+      }> = [];
       surveyData.forEach((kategoriData) => {
         kategoriData.pertanyaan.forEach((pertanyaan) => {
           const answer = answers[pertanyaan.id];
           if (answer !== undefined && answer !== '') {
-            surveyAnswers[`kategori_${kategoriData.kategori.id}_pertanyaan_${pertanyaan.id}`] = {
+            surveyAnswers.push({
               kategori_id: kategoriData.kategori.id,
               kategori_nama: kategoriData.kategori.nama,
               pertanyaan_id: pertanyaan.id,
@@ -224,7 +224,7 @@ export default function SurveiPage() {
               jawaban: pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer,
               tipe_jawaban: pertanyaan.tipe_jawaban,
               urutan: pertanyaan.urutan
-            };
+            });
           }
         });
       });
