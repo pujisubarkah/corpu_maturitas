@@ -21,6 +21,12 @@ export default function ProfilePage() {
     instansiKategori: '',
   })
 
+  const [currentUser, setCurrentUser] = useState<{
+    id: number;
+    username: string;
+    fullName?: string;
+    full_name?: string;
+  } | null>(null)
   const [instansiKategoriOptions, setInstansiKategoriOptions] = useState<Array<{id: number, kat_instansi: string}>>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -36,6 +42,19 @@ export default function ProfilePage() {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
   }
+
+  // Load current user from localStorage
+  useEffect(() => {
+    try {
+      const userData = localStorage.getItem('currentUser')
+      if (userData) {
+        const user = JSON.parse(userData)
+        setCurrentUser(user)
+      }
+    } catch (error) {
+      console.warn('Failed to load current user from localStorage:', error)
+    }
+  }, [])
 
   // Set instansi automatically when component mounts or slug changes
   useEffect(() => {
@@ -126,6 +145,7 @@ export default function ProfilePage() {
         contact: formData.contact,
         instansi: formData.instansi,
         instansi_type_id: parseInt(formData.instansiKategori),
+        user_id: currentUser?.id || null,
         // Optional: user_id can be added when authentication is implemented
         // user_id: currentUserId,
       }
@@ -165,6 +185,29 @@ export default function ProfilePage() {
     }
   }
 
+  // Check if user is logged in
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="text-center p-8">
+            <div className="text-6xl mb-4">🔒</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Diperlukan</h2>
+            <p className="text-gray-600 mb-6">
+              Anda perlu login terlebih dahulu untuk mengisi profil.
+            </p>
+            <Button 
+              onClick={() => window.location.href = '/login'} 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              Login Sekarang
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -177,7 +220,7 @@ export default function ProfilePage() {
             </p>
             <div className="space-y-3">
               <Button 
-                onClick={() => window.location.href = '/input-survey'} 
+                onClick={() => window.location.href = `/${slug}/survei`} 
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
                 Mulai Survey
