@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+// Update the import path to the correct location of your db module
 import { db } from '@/src/lib/db';
 import { users } from '@/src/lib/schemas/user';
 import { eq } from 'drizzle-orm';

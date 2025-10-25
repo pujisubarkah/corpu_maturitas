@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter, useParams } from 'next/navigation'
-import { Mail, ChevronDown, LogOut, Search, Key } from 'lucide-react'
+import { Mail, ChevronDown, LogOut, Key } from 'lucide-react'
 
 function initials(name?: string) {
   if (!name) return 'U'
@@ -76,17 +76,8 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Kanan: Search, Notification, dan Profil */}
+      {/* Kanan: Notification, dan Profil */}
       <div className="flex items-center gap-4">
-        {/* Search */}
-        <div className="hidden md:flex items-center bg-gray-100 rounded-full px-3 py-1 gap-2">
-          <Search className="h-4 w-4 text-gray-500" />
-          <input
-            placeholder="Cari sesuatu..."
-            className="bg-transparent text-sm outline-none w-40"
-          />
-        </div>
-
         {/* Notifikasi */}
         <button className="relative p-2 hover:bg-gray-100 rounded-full transition-all">
           <Mail className={`w-5 h-5 ${unreadCount > 0 ? 'text-blue-600' : 'text-gray-600'}`} />
