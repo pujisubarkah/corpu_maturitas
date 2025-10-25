@@ -1,6 +1,7 @@
 import { pgTable, serial, varchar, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { kategori } from './kategori'
+import { opsiJawaban } from './opsi_jawaban'
 
 export const pertanyaanKompetensi = pgTable('pertanyaan_kompetensi', {
 	id: serial('id').primaryKey(),
@@ -16,11 +17,12 @@ export const pertanyaanKompetensi = pgTable('pertanyaan_kompetensi', {
 })
 
 // Relations
-export const pertanyaanKompetensiRelations = relations(pertanyaanKompetensi, ({ one }) => ({
+export const pertanyaanKompetensiRelations = relations(pertanyaanKompetensi, ({ one, many }) => ({
 	kategori: one(kategori, {
 		fields: [pertanyaanKompetensi.kategori_id],
 		references: [kategori.id],
 	}),
+	opsiJawaban: many(opsiJawaban),
 }))
 
 export const kategoriRelations = relations(kategori, ({ many }) => ({

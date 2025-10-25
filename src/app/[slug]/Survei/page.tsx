@@ -32,19 +32,45 @@ interface ApiResponse {
   data: KategoriData[];
 }
 
+interface OpsiJawaban {
+  id: number;
+  pertanyaan_id: number;
+  label: string;
+  nilai: string;
+  urutan: number;
+  is_active: boolean | null;
+}
+
+interface OpsiJawabanData {
+  pertanyaan: {
+    id: number;
+    kode: string | null;
+    pertanyaan: string | null;
+  };
+  opsi_jawaban: OpsiJawaban[];
+}
+
+interface OpsiJawabanApiResponse {
+  success: boolean;
+  data: OpsiJawabanData[];
+}
+
 export default function SurveiPage() {
   const params = useParams();
   const slug = params?.slug as string;
 
   const [surveyData, setSurveyData] = useState<KategoriData[]>([]);
+  const [opsiJawabanData, setOpsiJawabanData] = useState<OpsiJawabanData[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDescription, setShowDescription] = useState<Record<number, boolean>>({});
+  const [currentStep, setCurrentStep] = useState(1); // Start from kategori ID 1
 
   useEffect(() => {
     fetchSurveyData();
+    fetchOpsiJawabanData();
   }, []);
 
   const fetchSurveyData = async () => {
@@ -66,11 +92,74 @@ export default function SurveiPage() {
     }
   };
 
+  const fetchOpsiJawabanData = async () => {
+    try {
+      const response = await fetch('/api/opsi_jawaban');
+      const data: OpsiJawabanApiResponse = await response.json();
+
+      if (data.success) {
+        setOpsiJawabanData(data.data);
+      } else {
+        console.warn('Gagal memuat data opsi jawaban');
+      }
+    } catch (err) {
+      console.error('Error fetching opsi jawaban data:', err);
+    }
+  };
+
+  const validateCurrentStep = () => {
+    if (surveyData.length === 0) return true;
+
+    const currentKategoriData = surveyData.find(k => k.kategori.id === currentStep);
+    if (!currentKategoriData) return true;
+
+    const requiredQuestions = currentKategoriData.pertanyaan.filter(q => q.is_required);
+    const missingAnswers = requiredQuestions.filter(q => !answers[q.id]?.trim());
+
+    return missingAnswers.length === 0;
+  };
+
+  const handleNext = () => {
+    if (!validateCurrentStep()) {
+      setError(`Mohon lengkapi semua pertanyaan wajib di kategori ini sebelum lanjut ke langkah berikutnya`);
+      return;
+    }
+
+    setError(null);
+    const nextStep = currentStep + 1;
+    const nextKategoriExists = surveyData.some(k => k.kategori.id === nextStep);
+
+    if (nextKategoriExists) {
+      setCurrentStep(nextStep);
+    }
+  };
+
+  const handlePrevious = () => {
+    setError(null);
+    const prevStep = currentStep - 1;
+    if (prevStep >= 1) {
+      setCurrentStep(prevStep);
+    }
+  };
+
   const handleAnswerChange = (questionId: number, value: string) => {
     setAnswers(prev => ({
       ...prev,
       [questionId]: value
     }));
+  };
+
+  const handleStepClick = (stepId: number) => {
+    // Only allow navigation to completed steps or current step
+    if (stepId <= currentStep) {
+      setError(null);
+      setCurrentStep(stepId);
+    }
+  };
+
+  const getOpsiJawabanForPertanyaan = (pertanyaanId: number): OpsiJawaban[] => {
+    const opsiData = opsiJawabanData.find(data => data.pertanyaan.id === pertanyaanId);
+    return opsiData ? opsiData.opsi_jawaban.sort((a, b) => a.urutan - b.urutan) : [];
   };
 
   const toggleDescription = (questionId: number) => {
@@ -81,7 +170,7 @@ export default function SurveiPage() {
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
+    // Validate all required fields across all categories
     const requiredQuestions = surveyData.flatMap(kategoriData =>
       kategoriData.pertanyaan.filter(q => q.is_required)
     );
@@ -97,16 +186,74 @@ export default function SurveiPage() {
       setSubmitting(true);
       setError(null);
 
-      // Here you would submit the answers to your API
-      // For now, we'll just simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get current user info from localStorage
+      const currentUser = localStorage.getItem('currentUser');
+      let instansiId = 1; // Default fallback
 
-      alert('Jawaban survei berhasil disimpan!');
-      // You could redirect to a thank you page or results page here
+      if (currentUser) {
+        try {
+          const userData = JSON.parse(currentUser);
+          instansiId = userData.instansi_id || userData.id || 1;
+        } catch (e) {
+          console.warn('Failed to parse user data:', e);
+        }
+      }
+
+      // Prepare answers data
+      const surveyAnswers: Record<string, {
+        kategori_id: number;
+        kategori_nama: string;
+        pertanyaan_id: number;
+        pertanyaan_kode: string | null;
+        pertanyaan: string | null;
+        jawaban: string | number;
+        tipe_jawaban: string | null;
+        urutan: number | null;
+      }> = {};
+      surveyData.forEach((kategoriData) => {
+        kategoriData.pertanyaan.forEach((pertanyaan) => {
+          const answer = answers[pertanyaan.id];
+          if (answer !== undefined && answer !== '') {
+            surveyAnswers[`kategori_${kategoriData.kategori.id}_pertanyaan_${pertanyaan.id}`] = {
+              kategori_id: kategoriData.kategori.id,
+              kategori_nama: kategoriData.kategori.nama,
+              pertanyaan_id: pertanyaan.id,
+              pertanyaan_kode: pertanyaan.kode,
+              pertanyaan: pertanyaan.pertanyaan,
+              jawaban: pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer,
+              tipe_jawaban: pertanyaan.tipe_jawaban,
+              urutan: pertanyaan.urutan
+            };
+          }
+        });
+      });
+
+      // Submit to API
+      const response = await fetch('/api/jawaban', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instansi_id: instansiId,
+          tahun: new Date().getFullYear(),
+          jawaban: surveyAnswers
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('Terima kasih! Jawaban survei Anda telah berhasil disimpan.');
+        // You could redirect to a thank you page here
+        // router.push('/thank-you');
+      } else {
+        throw new Error(result.message || 'Gagal menyimpan jawaban');
+      }
 
     } catch (err) {
-      setError('Terjadi kesalahan saat menyimpan jawaban');
       console.error('Error submitting survey:', err);
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan jawaban');
     } finally {
       setSubmitting(false);
     }
@@ -152,70 +299,102 @@ export default function SurveiPage() {
             Selamat datang, <span className="font-semibold text-blue-600">{slug}</span>
           </p>
           <p className="text-gray-500 mt-2">
-            Silakan lengkapi survei berikut dengan jujur dan akurat
+            Yuk isi survei ini! Jawaban Anda sangat berharga untuk kami.
           </p>
         </div>
 
-        {/* Survey Form */}
-        <div className="space-y-8">
-          {surveyData.map((kategoriData) => (
-            <Card key={kategoriData.kategori.id} className="shadow-lg">
-              <CardHeader className="bg-blue-50 border-b">
-                <CardTitle className="text-xl text-blue-900 flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-bold text-blue-700">
-                      {kategoriData.kategori.id}
-                    </span>
+        {/* Step Indicator */}
+        {surveyData.length > 0 && (
+          <div className="mb-8">
+            <div className="relative flex justify-center items-center">
+              {/* Connecting Line */}
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 -translate-y-1/2"></div>
+
+              {/* Step Bullets */}
+              <div className="relative flex justify-center gap-8">
+                {surveyData
+                  .sort((a, b) => a.kategori.id - b.kategori.id)
+                  .map((kategoriData) => (
+                  <div
+                    key={kategoriData.kategori.id}
+                    onClick={() => handleStepClick(kategoriData.kategori.id)}
+                    className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
+                      kategoriData.kategori.id === currentStep
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg cursor-default'
+                        : kategoriData.kategori.id < currentStep
+                        ? 'bg-green-600 text-white border-green-600 cursor-pointer hover:bg-green-700 hover:border-green-700'
+                        : 'bg-gray-300 text-gray-600 border-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {kategoriData.kategori.id}
                   </div>
-                  {kategoriData.kategori.nama}
-                </CardTitle>
-                <p className="text-blue-700 mt-2">
-                  {kategoriData.kategori.deskripsi}
-                </p>
-              </CardHeader>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {kategoriData.pertanyaan
-                    .sort((a, b) => a.urutan - b.urutan)
-                    .map((pertanyaan) => (
-                    <div key={pertanyaan.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                          {pertanyaan.urutan}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-gray-900">
-                              {pertanyaan.kode}: {pertanyaan.pertanyaan}
-                            </h3>
-                            <button
-                              onClick={() => toggleDescription(pertanyaan.id)}
-                              className="text-yellow-500 hover:text-yellow-600 transition-colors"
-                              title="Klik untuk melihat deskripsi"
-                            >
-                              <Lightbulb className="w-5 h-5" />
-                            </button>
-                            {pertanyaan.is_required && (
-                              <span className="text-red-500 text-sm">*</span>
-                            )}
-                          </div>
+        {/* Survey Form */}
+        {surveyData.length > 0 && (
+          <Card className="shadow-lg">
+            <CardHeader className="bg-blue-50 border-b">
+              <CardTitle className="text-xl text-blue-900 flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-bold text-blue-700">
+                    {currentStep}
+                  </span>
+                </div>
+                {surveyData.find(k => k.kategori.id === currentStep)?.kategori.nama}
+              </CardTitle>
+              <p className="text-blue-700 mt-2">
+                {surveyData.find(k => k.kategori.id === currentStep)?.kategori.deskripsi}
+              </p>
+            </CardHeader>
 
-                          {/* Description Tooltip */}
-                          {showDescription[pertanyaan.id] && (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-                              <div className="flex items-start gap-2">
-                                <HelpCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-                                <p className="text-sm text-yellow-800">
-                                  {pertanyaan.deskripsi}
-                                </p>
-                              </div>
-                            </div>
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                {surveyData.find(k => k.kategori.id === currentStep)?.pertanyaan
+                  .sort((a, b) => a.urutan - b.urutan)
+                  .map((pertanyaan) => (
+                  <div key={pertanyaan.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                        {pertanyaan.urutan}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-gray-900">
+                            {pertanyaan.kode}: {pertanyaan.pertanyaan}
+                          </h3>
+                          <button
+                            onClick={() => toggleDescription(pertanyaan.id)}
+                            className="text-yellow-500 hover:text-yellow-600 transition-colors"
+                            title="Klik untuk melihat deskripsi"
+                          >
+                            <Lightbulb className="w-5 h-5" />
+                          </button>
+                          {pertanyaan.is_required && (
+                            <span className="text-red-500 text-sm">*</span>
                           )}
+                        </div>
 
-                          {/* Answer Input */}
-                          <div className="mt-3">
-                            {pertanyaan.tipe_jawaban === 'angka' ? (
+                        {/* Description Tooltip */}
+                        {showDescription[pertanyaan.id] && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                            <div className="flex items-start gap-2">
+                              <HelpCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+                              <p className="text-sm text-yellow-800">
+                                {pertanyaan.deskripsi}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Answer Input */}
+                        <div className="mt-3">
+                          {currentStep === 1 ? (
+                            // Kategori 1: Input text
+                            pertanyaan.tipe_jawaban === 'angka' ? (
                               <Input
                                 type="number"
                                 placeholder="Masukkan angka..."
@@ -232,50 +411,115 @@ export default function SurveiPage() {
                                 onChange={(e) => handleAnswerChange(pertanyaan.id, e.target.value)}
                                 className="w-full"
                               />
-                            )}
-                          </div>
-
-                          {pertanyaan.is_required && (
-                            <p className="text-xs text-red-600 mt-1">
-                              * Pertanyaan wajib diisi
-                            </p>
+                            )
+                          ) : (
+                            // Kategori 2-9: Radio buttons dengan opsi jawaban
+                            <div className="space-y-3">
+                              {getOpsiJawabanForPertanyaan(pertanyaan.id).map((opsi) => (
+                                <label
+                                  key={opsi.id}
+                                  className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`question-${pertanyaan.id}`}
+                                    value={opsi.nilai}
+                                    checked={answers[pertanyaan.id] === opsi.nilai}
+                                    onChange={(e) => handleAnswerChange(pertanyaan.id, e.target.value)}
+                                    className="mt-1 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <div className="flex-1">
+                                    <span className="text-sm text-gray-900">{opsi.label}</span>
+                                    <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                      Nilai: {opsi.nilai}
+                                    </span>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
                           )}
                         </div>
+
+                        {pertanyaan.is_required && (
+                          <p className="text-xs text-red-600 mt-1">
+                            * Pertanyaan wajib diisi
+                          </p>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Submit Button */}
-        <div className="mt-8 flex justify-center">
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-8 py-3 text-lg"
-          >
-            {submitting ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Menyimpan...
-              </>
+        {/* Navigation Buttons */}
+        {surveyData.length > 0 && (
+          <div className="mt-8 flex justify-between items-center">
+            <Button
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              variant="outline"
+              className="px-6 py-2"
+            >
+              ← Sebelumnya
+            </Button>
+
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                Langkah {currentStep} dari {Math.max(...surveyData.map(k => k.kategori.id))}
+              </span>
+            </div>
+
+            {currentStep === Math.max(...surveyData.map(k => k.kategori.id)) ? (
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-6 py-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Kirim Jawaban
+                  </>
+                )}
+              </Button>
             ) : (
-              <>
-                <CheckCircle className="w-5 h-5 mr-2" />
-                Kirim Jawaban Survei
-              </>
+              <Button
+                onClick={handleNext}
+                className="px-6 py-2"
+              >
+                Selanjutnya →
+              </Button>
             )}
-          </Button>
-        </div>
+          </div>
+        )}
 
         {/* Progress Indicator */}
-        <div className="mt-6 text-center text-sm text-gray-500">
-          Total Pertanyaan: {surveyData.reduce((total, kategori) => total + kategori.pertanyaan.length, 0)} |
-          Terisi: {Object.keys(answers).filter(key => answers[Number(key)]?.trim()).length}
-        </div>
+        {surveyData.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-medium text-gray-700">
+                Langkah {currentStep} dari {Math.max(...surveyData.map(k => k.kategori.id))}
+              </span>
+              <span className="text-sm text-gray-500">
+                {Math.round((currentStep / Math.max(...surveyData.map(k => k.kategori.id))) * 100)}% selesai
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / Math.max(...surveyData.map(k => k.kategori.id))) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
