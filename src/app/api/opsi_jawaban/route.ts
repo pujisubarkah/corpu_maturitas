@@ -48,6 +48,15 @@ interface InsertData {
   is_active?: boolean;
 }
 
+interface RequestBody {
+  pertanyaan_id?: number | string;
+  label?: string;
+  nilai?: string;
+  urutan?: number | string;
+  is_active?: boolean | string;
+  id?: number | string;
+}
+
 interface UpdateData {
   pertanyaan_id?: number;
   label?: string;
@@ -167,7 +176,7 @@ export async function GET(request: Request) {
 // POST: create new
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as unknown
+    const body = (await request.json()) as RequestBody
 
     if (typeof body !== 'object' || body === null) {
       return NextResponse.json({ success: false, message: 'Invalid body' }, { status: 400 })
@@ -179,7 +188,7 @@ export async function POST(request: Request) {
       nilai,
       urutan,
       is_active,
-    } = body as Record<string, unknown>
+    } = body
 
     if (!pertanyaan_id || typeof pertanyaan_id !== 'number' && !Number(pertanyaan_id)) {
       return NextResponse.json({ success: false, message: 'Field pertanyaan_id wajib diisi' }, { status: 400 })
@@ -208,8 +217,8 @@ export async function POST(request: Request) {
 // PUT: update existing by id (body must include id)
 export async function PUT(request: Request) {
   try {
-    const body = (await request.json()) as Record<string, unknown>
-    const id = body.id ?? body['Id']
+    const body = (await request.json()) as RequestBody
+    const id = body.id
     const idNum = typeof id === 'number' ? id : id ? Number(id) : NaN
     if (Number.isNaN(idNum)) {
       return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 })
@@ -238,7 +247,7 @@ export async function DELETE(request: Request) {
     let id: number | undefined
     if (idParam) id = Number(idParam)
     else {
-      const body = (await request.json()) as Record<string, unknown>
+      const body = (await request.json()) as RequestBody
       const idBody = body?.id
       if (typeof idBody === 'number') id = idBody
       else if (idBody) id = Number(idBody)

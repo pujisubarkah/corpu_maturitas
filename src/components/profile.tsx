@@ -1,11 +1,15 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 
 export default function ProfilePage() {
+  const params = useParams()
+  const slug = params?.slug as string
+
   const [formData, setFormData] = useState({
     name: '',
     nip: '',
@@ -13,11 +17,53 @@ export default function ProfilePage() {
     position: '',
     unit: '',
     contact: '',
+    instansi: '',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+
+  // Function to convert slug to readable instansi name
+  const getInstansiName = (slug: string): string => {
+    if (!slug) return ''
+
+    // Convert slug to title case and replace hyphens with spaces
+    return slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
+  // Function to get instansi_type_id from API
+  const getInstansiTypeId = async (slug: string): Promise<number> => {
+    if (!slug) return 1
+
+    try {
+      const response = await fetch(`/api/instansi-type?slug=${encodeURIComponent(slug)}`)
+      const result = await response.json()
+
+      if (result.success) {
+        return result.data.instansi_type_id
+      }
+    } catch (error) {
+      console.warn('Failed to fetch instansi type from API:', error)
+    }
+
+    // Fallback to default
+    return 1
+  }
+
+  // Set instansi automatically when component mounts or slug changes
+  useEffect(() => {
+    if (slug) {
+      const instansiName = getInstansiName(slug)
+      setFormData(prev => ({
+        ...prev,
+        instansi: instansiName
+      }))
+    }
+  }, [slug])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -64,16 +110,57 @@ export default function ProfilePage() {
     setIsSubmitting(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Generate a unique ID for the profile (using timestamp for demo)
+      const profileId = Date.now()
       
-      // Store in localStorage for now
-      localStorage.setItem('userProfile', JSON.stringify(formData))
+      // Get instansi_type_id from API
+      const instansiTypeId = await getInstansiTypeId(slug)
       
-      setIsSubmitted(true)
+      // Prepare data for API
+      const profileData = {
+        id: profileId,
+        nama_lengkap: formData.name,
+        nip: formData.nip,
+        email: formData.email,
+        position: formData.position,
+        unit: formData.unit,
+        contact: formData.contact,
+        instansi: formData.instansi,
+        instansi_type_id: instansiTypeId,
+        // Optional: user_id can be added when authentication is implemented
+        // user_id: currentUserId,
+      }
+
+      // Call the profile API
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Gagal menyimpan profile')
+      }
+
+      const result = await response.json()
+
+      if (result.success) {
+        // Store profile data in localStorage for session management
+        localStorage.setItem('userProfile', JSON.stringify({
+          ...formData,
+          id: profileId
+        }))
+        
+        setIsSubmitted(true)
+      } else {
+        throw new Error(result.message || 'Gagal menyimpan profile')
+      }
     } catch (error) {
       console.error('Error saving profile:', error)
-      alert('Terjadi kesalahan saat menyimpan data. Silakan coba lagi.')
+      alert(`Terjadi kesalahan saat menyimpan data: ${error instanceof Error ? error.message : 'Unknown error'}. Silakan coba lagi.`)
     } finally {
       setIsSubmitting(false)
     }
@@ -171,6 +258,18 @@ export default function ProfilePage() {
                   <Input value={formData.contact} onChange={e => handleInputChange('contact', e.target.value)} placeholder="Nomor Kontak" className={errors.contact ? 'border-red-500' : ''} />
                   {errors.contact && <p className="text-red-500 text-xs mt-1">{errors.contact}</p>}
                 </div>
+              </div>
+
+              {/* Instansi - Full width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Instansi</label>
+                <Input 
+                  value={formData.instansi} 
+                  readOnly 
+                  className="bg-gray-50 cursor-not-allowed" 
+                  placeholder="Instansi akan terdeteksi otomatis" 
+                />
+                <p className="text-xs text-gray-500 mt-1">Instansi terdeteksi dari URL</p>
               </div>
 
               {/* Submit Button */}

@@ -22,7 +22,7 @@ export default function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const [userName, setUserName] = useState<string | null>(null)
-  const [unitKerja, setUnitKerja] = useState<string>('MAKARTI Dashboard')
+  const [unitKerja, setUnitKerja] = useState<string>('Survei Maturitas Corpu')
   const [menuOpen, setMenuOpen] = useState(false)
   const unreadCount = 0
 
@@ -32,7 +32,7 @@ export default function Header() {
       if (raw) {
         const u = JSON.parse(raw)
         setUserName(u?.fullName ?? u?.full_name ?? u?.username ?? null)
-        setUnitKerja(u?.unit_kerja ?? 'MAKARTI Dashboard')
+        setUnitKerja(u?.unit_kerja ?? 'Survei Maturitas Corpu')
       }
     } catch {
       // ignore

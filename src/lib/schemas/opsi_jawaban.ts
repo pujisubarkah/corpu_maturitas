@@ -20,3 +20,8 @@ export const opsiJawabanRelations = relations(opsiJawaban, ({ one }) => ({
 		references: [pertanyaanKompetensi.id],
 	}),
 }))
+
+// Add relation to pertanyaanKompetensi from opsiJawaban side
+export const pertanyaanKompetensiOpsiRelations = relations(pertanyaanKompetensi, ({ many }) => ({
+	opsiJawaban: many(opsiJawaban),
+}))

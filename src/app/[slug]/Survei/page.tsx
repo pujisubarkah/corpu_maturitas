@@ -186,17 +186,18 @@ export default function SurveiPage() {
       setSubmitting(true);
       setError(null);
 
-      // Get current user info from localStorage
-      const currentUser = localStorage.getItem('currentUser');
+      // Use slug as instansi identifier - convert to number or use hash
       let instansiId = 1; // Default fallback
 
-      if (currentUser) {
-        try {
-          const userData = JSON.parse(currentUser);
-          instansiId = userData.instansi_id || userData.id || 1;
-        } catch (e) {
-          console.warn('Failed to parse user data:', e);
+      if (slug) {
+        // Simple hash function to convert slug to number
+        let hash = 0;
+        for (let i = 0; i < slug.length; i++) {
+          const char = slug.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash; // Convert to 32-bit integer
         }
+        instansiId = Math.abs(hash) % 10000 + 1; // Keep it reasonable (1-10000)
       }
 
       // Prepare answers data
@@ -240,6 +241,11 @@ export default function SurveiPage() {
           jawaban: surveyAnswers
         })
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
 
       const result = await response.json();
 
@@ -430,9 +436,6 @@ export default function SurveiPage() {
                                   />
                                   <div className="flex-1">
                                     <span className="text-sm text-gray-900">{opsi.label}</span>
-                                    <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                      Nilai: {opsi.nilai}
-                                    </span>
                                   </div>
                                 </label>
                               ))}
