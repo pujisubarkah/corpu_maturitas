@@ -24,8 +24,8 @@ export async function GET(request: Request) {
     } else if (status === 'verified') {
       whereCondition = eq(jawaban.is_verified, true)
     } else {
-      // For rejected, we might need a separate field or handle differently
-      whereCondition = eq(jawaban.is_verified, false) // For now, treat as pending
+      // If no status specified or unknown status, get all surveys
+      whereCondition = undefined
     }
 
     const surveys = await db
@@ -42,24 +42,35 @@ export async function GET(request: Request) {
         updated_at: jawaban.updated_at,
         profile_name: sql<string>`NULL`, // Placeholder - will be filled from user data if needed
         profile_email: sql<string>`NULL`, // Placeholder - will be filled from user data if needed
-        instansi_name: instansi.nama_instansi,
-        // Calculate self assessment score from jawaban JSON
-        self_assessment_score: sql<number>`AVG((jsonb_array_elements(${jawaban.jawaban})->>'jawaban')::numeric)`,
-        // Calculate verification score from verification_answers JSON if exists
-        verification_score: sql<number>`CASE WHEN ${jawaban.verification_answers} IS NOT NULL THEN AVG((jsonb_array_elements(${jawaban.verification_answers})->>'jawaban')::numeric) ELSE NULL END`
+        nama_instansi: instansi.nama_instansi,
+        // Calculate self assessment score from jawaban JSON using LATERAL
+        self_assessment_score: sql<number>`COALESCE(self_scores.score, 0)`,
+        // Calculate verification score from verification_answers JSON using LATERAL
+        verification_score: sql<number>`COALESCE(verification_scores.score, NULL)`
       })
       .from(jawaban)
-      .leftJoin(instansi, eq(jawaban.instansi_id, instansi.id))
-      .where(whereCondition)
+      .leftJoin(instansi, eq(jawaban.instansi_id, instansi.instansi_id))
+      .leftJoin(
+        sql`(SELECT id, SUM((value->>'jawaban')::numeric) as score FROM jawaban, jsonb_array_elements(jawaban.jawaban) as value WHERE (value->>'kategori_id')::integer BETWEEN 2 AND 9 GROUP BY id) as self_scores`,
+        eq(jawaban.id, sql`self_scores.id`)
+      )
+      .leftJoin(
+        sql`(SELECT id, SUM((value->>'jawaban')::numeric) as score FROM jawaban, jsonb_array_elements(jawaban.verification_answers) as value WHERE verification_answers IS NOT NULL AND (value->>'kategori_id')::integer BETWEEN 2 AND 9 GROUP BY id) as verification_scores`,
+        eq(jawaban.id, sql`verification_scores.id`)
+      )
+      .where(whereCondition || sql`TRUE`)
       .orderBy(jawaban.created_at)
       .limit(validLimit)
       .offset(offset)
 
     // Get total count
-    const totalCountResult = await db
+    const totalCountQuery = db
       .select({ count: sql<number>`count(*)` })
       .from(jawaban)
-      .where(whereCondition)
+
+    const totalCountResult = whereCondition
+      ? await totalCountQuery.where(whereCondition)
+      : await totalCountQuery
 
     const totalCount = totalCountResult[0]?.count || 0
     const totalPages = Math.ceil(totalCount / validLimit)

@@ -19,12 +19,14 @@ interface SurveyData {
   nama_instansi: string;
   tahun: number;
   jawaban: JawabanItem[];
+  verification_answers: JawabanItem[] | null;
   is_verified: boolean;
   verified_by: string | null;
   verified_at: string | null;
   created_at: string;
   updated_at: string;
-  assessment_score?: number;
+  self_assessment_score?: number;
+  verification_score?: number | null;
 }
 
 export default function VerificationSurveyPage() {
@@ -36,21 +38,42 @@ export default function VerificationSurveyPage() {
 
   const fetchSurveys = async () => {
     try {
+      // Get all surveys from jawaban API
       const response = await fetch('/api/jawaban');
       const result = await response.json();
       if (result.success) {
-        // Calculate assessment score for each survey (sum of answers from kategori_id 2-9)
-        const surveysWithScores = result.data.map((survey: SurveyData) => {
-          const assessmentScore = survey.jawaban
-            .filter(item => item.kategori_id >= 2 && item.kategori_id <= 9)
-            .reduce((sum, item) => sum + Number(item.jawaban), 0);
+        // Calculate scores for each survey
+        const surveysWithScores = result.data.map((survey: Omit<SurveyData, 'self_assessment_score' | 'verification_score'>) => {
+          // Calculate self assessment score from jawaban (kategori_id 2-9)
+          let selfAssessmentScore = 0;
+          if (survey.jawaban && Array.isArray(survey.jawaban)) {
+            selfAssessmentScore = survey.jawaban
+              .filter((item: JawabanItem) => item.kategori_id >= 2 && item.kategori_id <= 9)
+              .reduce((sum: number, item: JawabanItem) => {
+                const value = typeof item.jawaban === 'number' ? item.jawaban : 
+                             typeof item.jawaban === 'string' ? parseFloat(item.jawaban) || 0 : 0;
+                return sum + value;
+              }, 0);
+          }
+
+          // Calculate verification score from verification_answers if available
+          let verificationScore = null;
+          if (survey.verification_answers && Array.isArray(survey.verification_answers)) {
+            verificationScore = survey.verification_answers
+              .filter((item: JawabanItem) => item.kategori_id >= 2 && item.kategori_id <= 9)
+              .reduce((sum: number, item: JawabanItem) => {
+                const value = typeof item.jawaban === 'number' ? item.jawaban : 
+                             typeof item.jawaban === 'string' ? parseFloat(item.jawaban) || 0 : 0;
+                return sum + value;
+              }, 0);
+          }
 
           return {
             ...survey,
-            assessment_score: assessmentScore
+            self_assessment_score: selfAssessmentScore,
+            verification_score: verificationScore
           };
         });
-
         setSurveys(surveysWithScores);
       }
     } catch (error) {
@@ -61,6 +84,25 @@ export default function VerificationSurveyPage() {
   useEffect(() => {
     fetchSurveys().finally(() => setLoading(false));
   }, []);
+
+  // Refresh data when component mounts (useful after verification)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchSurveys();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const getMaturityLevel = (score: number): string => {
+    if (score >= 0 && score <= 1000) return 'Initial';
+    if (score >= 1001 && score <= 2000) return 'Intermediate (Low)';
+    if (score >= 2001 && score <= 3000) return 'Intermediate (High)';
+    if (score >= 3001 && score <= 3500) return 'Mature';
+    if (score >= 3501 && score <= 4000) return 'Advanced';
+    return 'Unknown';
+  };
 
   const handleVerification = (survey: SurveyData) => {
     // Navigate to verification detail page
@@ -109,7 +151,10 @@ export default function VerificationSurveyPage() {
                     Verifikasi
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nilai Assessment
+                    Nilai Self Assessment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nilai Verifikasi
                   </th>
                 </tr>
               </thead>
@@ -126,15 +171,38 @@ export default function VerificationSurveyPage() {
                       {new Date(survey.created_at).toLocaleDateString('id-ID')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleVerification(survey)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md text-xs font-medium"
-                      >
-                        Verifikasi
-                      </button>
+                      {survey.is_verified ? (
+                        <span className="text-green-600 bg-green-50 px-3 py-1 rounded-md text-xs font-medium cursor-not-allowed">
+                          ✓ Sudah Terverifikasi
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleVerification(survey)}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md text-xs font-medium"
+                        >
+                          Verifikasi
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {survey.assessment_score || 0}
+                      <div className="text-center">
+                        <div className="font-medium">{survey.self_assessment_score || 0}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {getMaturityLevel(survey.self_assessment_score || 0)}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="text-center">
+                        <div className="font-medium">
+                          {survey.verification_score !== null ? survey.verification_score : '-'}
+                        </div>
+                        {survey.verification_score !== null && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {getMaturityLevel(survey.verification_score!)}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
