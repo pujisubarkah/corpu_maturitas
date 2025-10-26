@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '../../../lib/db'
 import { profile } from '../../../lib/schemas/profile'
 import { eq, or, like } from 'drizzle-orm'
+import { slugToInstansiId } from '../../../lib/utils/instansi'
 
 // Type definitions
 interface ProfileInsert {
@@ -12,7 +13,7 @@ interface ProfileInsert {
   position?: string;
   unit?: string;
   instansi_type_id?: number;
-  instansi?: string;
+  instansi?: number;
   contact?: string;
   nama_lengkap?: string;
 }
@@ -24,7 +25,7 @@ interface ProfileUpdate {
   position?: string;
   unit?: string;
   instansi_type_id?: number;
-  instansi?: string;
+  instansi?: number;
   contact?: string;
   nama_lengkap?: string;
 }
@@ -210,10 +211,25 @@ export async function POST(request: Request) {
     }
 
     if (instansi !== undefined) {
-      if (typeof instansi !== 'string') {
-        return NextResponse.json({ success: false, message: 'instansi harus berupa string' }, { status: 400 })
+      let instansiId: number
+
+      if (typeof instansi === 'number') {
+        instansiId = instansi
+      } else if (typeof instansi === 'string') {
+        // Try to convert slug to instansi ID
+        const convertedId = await slugToInstansiId(instansi)
+        if (convertedId === null) {
+          return NextResponse.json({
+            success: false,
+            message: `Instansi dengan slug "${instansi}" tidak ditemukan`
+          }, { status: 400 })
+        }
+        instansiId = convertedId
+      } else {
+        return NextResponse.json({ success: false, message: 'instansi harus berupa angka atau string slug yang valid' }, { status: 400 })
       }
-      values.instansi = instansi as string
+
+      values.instansi = instansiId
     }
 
     if (contact !== undefined) {
@@ -316,10 +332,25 @@ export async function PUT(request: Request) {
     }
 
     if (instansi !== undefined) {
-      if (typeof instansi !== 'string') {
-        return NextResponse.json({ success: false, message: 'instansi harus berupa string' }, { status: 400 })
+      let instansiId: number
+
+      if (typeof instansi === 'number') {
+        instansiId = instansi
+      } else if (typeof instansi === 'string') {
+        // Try to convert slug to instansi ID
+        const convertedId = await slugToInstansiId(instansi)
+        if (convertedId === null) {
+          return NextResponse.json({
+            success: false,
+            message: `Instansi dengan slug "${instansi}" tidak ditemukan`
+          }, { status: 400 })
+        }
+        instansiId = convertedId
+      } else {
+        return NextResponse.json({ success: false, message: 'instansi harus berupa angka atau string slug yang valid' }, { status: 400 })
       }
-      updateData.instansi = instansi as string
+
+      updateData.instansi = instansiId
     }
 
     if (contact !== undefined) {

@@ -1,4 +1,4 @@
-import { pgTable, bigint, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, bigint, varchar, integer } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('user', {
   id: bigint('id', { mode: 'number' }).primaryKey(),
@@ -6,4 +6,5 @@ export const users = pgTable('user', {
   username: varchar('username', { length: 100 }).unique(),
   password: varchar('password', { length: 100 }),
   fullName: varchar('full_name', { length: 100 }),
+  instansiId: integer('instansi_id'),
 });

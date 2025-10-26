@@ -44,10 +44,10 @@ const adminMenu = [
     ],
   },
   {
-    title: "survei",
+    title: "Verifikasi",
     icon: FileText,
     children: [
-      { title: "survei", href: "/[slug]/survei" },
+      { title: "Verifikasi Survei", href: "/[slug]/verifikasi-survei" },
     ],
   },
 ];
@@ -59,7 +59,7 @@ const userMenu = [
     icon: FileText,
     children: [
           { title: "Profile", href: "/[slug]/profile" },
-      { title: "survei", href: "/[slug]/survei" },
+      { title: "Survei", href: "/[slug]/survei" },
     ],
   },
 ];

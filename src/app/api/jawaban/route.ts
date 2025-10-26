@@ -41,7 +41,21 @@ export async function GET(request: Request) {
       if (Number.isNaN(id)) {
         return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 })
       }
-      const rows = await db.select().from(jawaban).where(eq(jawaban.id, id)).limit(1)
+      const rows = await db
+        .select({
+          id: jawaban.id,
+          instansi_id: jawaban.instansi_id,
+          tahun: jawaban.tahun,
+          jawaban: jawaban.jawaban,
+          is_verified: jawaban.is_verified,
+          verified_by: jawaban.verified_by,
+          verified_at: jawaban.verified_at,
+          created_at: jawaban.created_at,
+          updated_at: jawaban.updated_at
+        })
+        .from(jawaban)
+        .where(eq(jawaban.id, id))
+        .limit(1)
       return NextResponse.json({
         success: true,
         data: rows.length ? rows[0] : null
@@ -58,7 +72,17 @@ export async function GET(request: Request) {
       }
 
       const rows = await db
-        .select()
+        .select({
+          id: jawaban.id,
+          instansi_id: jawaban.instansi_id,
+          tahun: jawaban.tahun,
+          jawaban: jawaban.jawaban,
+          is_verified: jawaban.is_verified,
+          verified_by: jawaban.verified_by,
+          verified_at: jawaban.verified_at,
+          created_at: jawaban.created_at,
+          updated_at: jawaban.updated_at
+        })
         .from(jawaban)
         .where(and(eq(jawaban.instansi_id, instansiId), eq(jawaban.tahun, tahun)))
         .limit(1)
@@ -70,7 +94,20 @@ export async function GET(request: Request) {
     }
 
     // Get all jawaban
-    const rows = await db.select().from(jawaban).orderBy(jawaban.created_at)
+    const rows = await db
+      .select({
+        id: jawaban.id,
+        instansi_id: jawaban.instansi_id,
+        tahun: jawaban.tahun,
+        jawaban: jawaban.jawaban,
+        is_verified: jawaban.is_verified,
+        verified_by: jawaban.verified_by,
+        verified_at: jawaban.verified_at,
+        created_at: jawaban.created_at,
+        updated_at: jawaban.updated_at
+      })
+      .from(jawaban)
+      .orderBy(jawaban.created_at)
     return NextResponse.json({
       success: true,
       data: rows
@@ -126,9 +163,27 @@ export async function POST(request: Request) {
     }
 
     const [inserted] = await db.insert(jawaban).values(values).returning()
+    
+    // Get inserted record with nama_instansi
+    const [result] = await db
+      .select({
+        id: jawaban.id,
+        instansi_id: jawaban.instansi_id,
+        tahun: jawaban.tahun,
+        jawaban: jawaban.jawaban,
+        is_verified: jawaban.is_verified,
+        verified_by: jawaban.verified_by,
+        verified_at: jawaban.verified_at,
+        created_at: jawaban.created_at,
+        updated_at: jawaban.updated_at
+      })
+      .from(jawaban)
+      .where(eq(jawaban.id, inserted.id))
+      .limit(1)
+    
     return NextResponse.json({
       success: true,
-      data: inserted,
+      data: result,
       message: 'Jawaban berhasil disimpan'
     })
   } catch (error) {
@@ -193,7 +248,17 @@ export async function PUT(request: Request) {
 
     // Get updated record
     const [updated] = await db
-      .select()
+      .select({
+        id: jawaban.id,
+        instansi_id: jawaban.instansi_id,
+        tahun: jawaban.tahun,
+        jawaban: jawaban.jawaban,
+        is_verified: jawaban.is_verified,
+        verified_by: jawaban.verified_by,
+        verified_at: jawaban.verified_at,
+        created_at: jawaban.created_at,
+        updated_at: jawaban.updated_at
+      })
       .from(jawaban)
       .where(eq(jawaban.id, id as number))
       .limit(1)

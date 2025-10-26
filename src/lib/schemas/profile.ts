@@ -8,7 +8,7 @@ export const profile = pgTable('profile', {
 	position: varchar('position', { length: 255 }),
 	unit: varchar('unit', { length: 255 }),
 	instansi_type_id: integer('instansi_type_id'),
-	instansi: varchar('instansi', { length: 255 }),
+	instansi: integer('instansi'),
 	contact: varchar('contact', { length: 64 }),
 	created_at: timestamp('created_at', { mode: 'date' }).defaultNow(),
 	updated_at: timestamp('updated_at', { mode: 'date' }).defaultNow(),
