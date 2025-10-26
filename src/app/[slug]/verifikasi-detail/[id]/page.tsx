@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from "next/navigation";
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from "next/navigation";
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { Lightbulb, HelpCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Lightbulb, HelpCircle, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface Pertanyaan {
   id: number;
@@ -55,11 +55,6 @@ interface OpsiJawabanApiResponse {
   data: OpsiJawabanData[];
 }
 
-interface OpsiJawabanApiResponse {
-  success: boolean;
-  data: OpsiJawabanData[];
-}
-
 interface ExistingAnswer {
   kategori_id: number;
   kategori_nama: string;
@@ -71,9 +66,24 @@ interface ExistingAnswer {
   urutan: number | null;
 }
 
-export default function SurveiPage() {
+interface SurveyData {
+  id: number;
+  instansi_id: number;
+  nama_instansi: string;
+  tahun: number;
+  jawaban: ExistingAnswer[];
+  is_verified: boolean;
+  verified_by: string | null;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export default function VerificationDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const slug = params?.slug as string;
+  const surveyId = params?.id as string;
 
   const [surveyData, setSurveyData] = useState<KategoriData[]>([]);
   const [opsiJawabanData, setOpsiJawabanData] = useState<OpsiJawabanData[]>([]);
@@ -82,67 +92,37 @@ export default function SurveiPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDescription, setShowDescription] = useState<Record<number, boolean>>({});
-  const [currentStep, setCurrentStep] = useState(1); // Start from kategori ID 1
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [currentStep, setCurrentStep] = useState(1);
+  const [existingSurvey, setExistingSurvey] = useState<SurveyData | null>(null);
 
   useEffect(() => {
-    fetchSurveyData();
-    fetchOpsiJawabanData();
-  }, []);
+    if (surveyId) {
+      const fetchExistingSurvey = async () => {
+        try {
+          const response = await fetch(`/api/jawaban?id=${surveyId}`);
+          const data = await response.json();
 
-  const loadExistingAnswers = useCallback(async () => {
-    try {
-      // Check if user is logged in
-      const currentUser = localStorage.getItem('currentUser');
-      if (!currentUser) {
-        setIsEditMode(false);
-        return; // Not logged in, no existing answers to load
-      }
+          if (data.success && data.data) {
+            setExistingSurvey(data.data);
 
-      const user = JSON.parse(currentUser);
-      if (!user.instansiId) {
-        setIsEditMode(false);
-        return; // No instansiId, can't load answers
-      }
+            // Populate answers from existing survey
+            const existingAnswers: Record<number, string> = {};
+            data.data.jawaban.forEach((answer: ExistingAnswer) => {
+              existingAnswers[answer.pertanyaan_id] = answer.jawaban.toString();
+            });
+            setAnswers(existingAnswers);
+          }
+        } catch (error) {
+          console.error('Error fetching existing survey:', error);
+          setError('Gagal memuat data survei');
+        }
+      };
 
-      const instansiId = user.instansiId;
-
-      // Fetch existing answers for selected year
-      const response = await fetch(`/api/jawaban?instansi_id=${instansiId}&tahun=${selectedYear}`);
-      const data = await response.json();
-
-      if (data.success && data.data && data.data.jawaban) {
-        // Parse existing answers and populate the form
-        const existingAnswers: Record<number, string> = {};
-
-        // data.data.jawaban is an array of answer objects
-        data.data.jawaban.forEach((answer: ExistingAnswer) => {
-          existingAnswers[answer.pertanyaan_id] = answer.jawaban.toString();
-        });
-
-        setAnswers(existingAnswers);
-        setIsEditMode(true);
-        console.log('Loaded existing answers for year', selectedYear, ':', existingAnswers);
-      } else {
-        // No existing answers for this year
-        setAnswers({});
-        setIsEditMode(false);
-        console.log('No existing answers for year', selectedYear);
-      }
-    } catch (error) {
-      console.error('Error loading existing answers:', error);
-      setIsEditMode(false);
-      // Don't show error to user, just continue with empty form
+      fetchExistingSurvey();
+      fetchSurveyData();
+      fetchOpsiJawabanData();
     }
-  }, [selectedYear]);
-
-  useEffect(() => {
-    // Load existing answers when survey data is loaded or year changes
-    if (surveyData.length > 0) {
-      loadExistingAnswers();
-    }
-  }, [surveyData, selectedYear, loadExistingAnswers]);
+  }, [surveyId]);
 
   const fetchSurveyData = async () => {
     try {
@@ -257,35 +237,7 @@ export default function SurveiPage() {
       setSubmitting(true);
       setError(null);
 
-      // Check if user is logged in
-      const currentUser = localStorage.getItem('currentUser');
-      if (!currentUser) {
-        alert('Anda harus login terlebih dahulu untuk mengirim survei.');
-        window.location.href = '/login';
-        return;
-      }
-
-      // Get instansi_id from localStorage or calculate from slug
-      let instansiId: number = 1; // Default fallback
-      if (currentUser) {
-        try {
-          const user = JSON.parse(currentUser);
-          if (user.instansiId && typeof user.instansiId === 'number') {
-            instansiId = user.instansiId;
-            console.log('Using instansiId from localStorage:', instansiId);
-          } else {
-            console.log('No valid instansiId in localStorage, user data:', user);
-            alert('Data instansi tidak valid. Silakan login kembali.');
-            window.location.href = '/login';
-            return;
-          }
-        } catch (error) {
-          console.log('Error parsing localStorage currentUser:', error);
-          alert('Terjadi kesalahan pada data login. Silakan login kembali.');
-          window.location.href = '/login';
-          return;
-        }
-      }      // Prepare answers data as array for database trigger
+      // Prepare answers data as array for database trigger
       const surveyAnswers: Array<{
         kategori_id: number;
         kategori_nama: string;
@@ -314,40 +266,18 @@ export default function SurveiPage() {
         });
       });
 
-      // Check if survey already exists for this instansi and selected year
-      const checkResponse = await fetch(`/api/jawaban?instansi_id=${instansiId}&tahun=${selectedYear}`);
-      const checkData = await checkResponse.json();
-
-      let submitMethod = 'POST';
-      const submitUrl = '/api/jawaban';
-      let existingId = null;
-
-      if (checkData.success && checkData.data) {
-        // Survey already exists, update it
-        submitMethod = 'PUT';
-        existingId = checkData.data.id;
-      }
-
-      // Submit to API
-      const submitData = submitMethod === 'PUT'
-        ? {
-            id: existingId,
-            instansi_id: instansiId,
-            tahun: selectedYear,
-            jawaban: surveyAnswers
-          }
-        : {
-            instansi_id: instansiId,
-            tahun: selectedYear,
-            jawaban: surveyAnswers
-          };
-
-      const response = await fetch(submitUrl, {
-        method: submitMethod,
+      // Update existing survey with verification
+      const response = await fetch('/api/verification-survey', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submitData)
+        body: JSON.stringify({
+          id: existingSurvey?.id,
+          status: 'verified',
+          verified_by: 'admin', // TODO: Get from session/auth
+          verification_answers: surveyAnswers
+        })
       });
 
       if (!response.ok) {
@@ -358,19 +288,23 @@ export default function SurveiPage() {
       const result = await response.json();
 
       if (result.success) {
-        alert(submitMethod === 'PUT' ? 'Jawaban survei Anda telah berhasil diperbarui.' : 'Terima kasih! Jawaban survei Anda telah berhasil disimpan.');
-        // Reload existing answers to reflect changes
-        loadExistingAnswers();
+        alert('Survei telah berhasil diverifikasi dan jawaban telah disimpan.');
+        // Redirect back to verification list
+        router.push(`/${slug}/verifikasi-survei`);
       } else {
-        throw new Error(result.message || 'Gagal menyimpan jawaban');
+        throw new Error(result.message || 'Gagal memverifikasi survei');
       }
 
     } catch (err) {
-      console.error('Error submitting survey:', err);
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan jawaban');
+      console.error('Error submitting verification:', err);
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memverifikasi survei');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleBack = () => {
+    router.push(`/${slug}/verifikasi-survei`);
   };
 
   if (loading) {
@@ -378,7 +312,7 @@ export default function SurveiPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat pertanyaan survei...</p>
+          <p className="text-gray-600">Memuat data verifikasi survei...</p>
         </div>
       </div>
     );
@@ -392,8 +326,8 @@ export default function SurveiPage() {
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Error</h2>
             <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={fetchSurveyData} variant="outline">
-              Coba Lagi
+            <Button onClick={handleBack} variant="outline">
+              Kembali
             </Button>
           </CardContent>
         </Card>
@@ -406,42 +340,27 @@ export default function SurveiPage() {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Survei Maturitas Corporate University
-          </h1>
-          <p className="text-lg text-gray-600">
-            Selamat datang, <span className="font-semibold text-blue-600">{slug}</span>
-          </p>
-
-          {/* Year Selector */}
-          <div className="mt-4 flex items-center gap-4">
-            <label htmlFor="year-select" className="text-sm font-medium text-gray-700">
-              Periode Survei:
-            </label>
-            <select
-              id="year-select"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
-              <option value={2027}>2027</option>
-            </select>
+          <div className="flex items-center gap-4 mb-4">
+            <Button onClick={handleBack} variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Kembali
+            </Button>
           </div>
 
-          <p className="text-gray-500 mt-2">
-            {isEditMode
-              ? 'Anda dapat mengedit jawaban survei yang sudah disimpan sebelumnya.'
-              : 'Yuk isi survei ini! Jawaban Anda sangat berharga untuk kami.'
-            }
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Verifikasi Survei
+          </h1>
+          <p className="text-lg text-gray-600">
+            Verifikasi survei untuk: <span className="font-semibold text-blue-600">{existingSurvey?.nama_instansi}</span>
           </p>
-          {isEditMode && (
-            <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Mode Edit - Data survei tahun {selectedYear} sudah tersimpan
-            </div>
-          )}
+          <p className="text-gray-500 mt-2">
+            Tahun: {existingSurvey?.tahun} | ID Survey: {existingSurvey?.id}
+          </p>
+
+          <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-800">
+            <AlertCircle className="w-4 h-4 mr-2" />
+            Mode Verifikasi - Anda dapat mengedit jawaban survei
+          </div>
         </div>
 
         {/* Step Indicator */}
@@ -461,7 +380,7 @@ export default function SurveiPage() {
                     onClick={() => handleStepClick(kategoriData.kategori.id)}
                     className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
                       kategoriData.kategori.id === currentStep
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg cursor-default'
+                        ? 'bg-orange-600 text-white border-orange-600 shadow-lg cursor-default'
                         : kategoriData.kategori.id < currentStep
                         ? 'bg-green-600 text-white border-green-600 cursor-pointer hover:bg-green-700 hover:border-green-700'
                         : 'bg-gray-300 text-gray-600 border-gray-300 cursor-not-allowed'
@@ -478,16 +397,16 @@ export default function SurveiPage() {
         {/* Survey Form */}
         {surveyData.length > 0 && (
           <Card className="shadow-lg">
-            <CardHeader className="bg-blue-50 border-b">
-              <CardTitle className="text-xl text-blue-900 flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-bold text-blue-700">
+            <CardHeader className="bg-orange-50 border-b">
+              <CardTitle className="text-xl text-orange-900 flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-bold text-orange-700">
                     {currentStep}
                   </span>
                 </div>
                 {surveyData.find(k => k.kategori.id === currentStep)?.kategori.nama}
               </CardTitle>
-              <p className="text-blue-700 mt-2">
+              <p className="text-orange-700 mt-2">
                 {surveyData.find(k => k.kategori.id === currentStep)?.kategori.deskripsi}
               </p>
             </CardHeader>
@@ -499,7 +418,7 @@ export default function SurveiPage() {
                   .map((pertanyaan) => (
                   <div key={pertanyaan.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                      <div className="shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
                         {pertanyaan.urutan}
                       </div>
                       <div className="flex-1">
@@ -543,7 +462,7 @@ export default function SurveiPage() {
                                 placeholder="Masukkan angka..."
                                 value={answers[pertanyaan.id] || ''}
                                 onChange={(e) => handleAnswerChange(pertanyaan.id, e.target.value)}
-                                className={`w-full ${isEditMode && answers[pertanyaan.id] ? 'border-blue-500 bg-blue-50' : ''}`}
+                                className={`w-full ${answers[pertanyaan.id] ? 'border-orange-500 bg-orange-50' : ''}`}
                                 min="0"
                               />
                             ) : (
@@ -552,7 +471,7 @@ export default function SurveiPage() {
                                 placeholder="Masukkan jawaban Anda..."
                                 value={answers[pertanyaan.id] || ''}
                                 onChange={(e) => handleAnswerChange(pertanyaan.id, e.target.value)}
-                                className={`w-full ${isEditMode && answers[pertanyaan.id] ? 'border-blue-500 bg-blue-50' : ''}`}
+                                className={`w-full ${answers[pertanyaan.id] ? 'border-orange-500 bg-orange-50' : ''}`}
                               />
                             )
                           ) : (
@@ -562,8 +481,8 @@ export default function SurveiPage() {
                                 <label
                                   key={opsi.id}
                                   className={`flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors ${
-                                    isEditMode && answers[pertanyaan.id] === opsi.nilai
-                                      ? 'border-blue-500 bg-blue-50 shadow-sm'
+                                    answers[pertanyaan.id] === opsi.nilai
+                                      ? 'border-orange-500 bg-orange-50 shadow-sm'
                                       : ''
                                   }`}
                                 >
@@ -573,12 +492,12 @@ export default function SurveiPage() {
                                     value={opsi.nilai}
                                     checked={answers[pertanyaan.id] === opsi.nilai}
                                     onChange={(e) => handleAnswerChange(pertanyaan.id, e.target.value)}
-                                    className="mt-1 text-blue-600 focus:ring-blue-500"
+                                    className="mt-1 text-orange-600 focus:ring-orange-500"
                                   />
                                   <div className="flex-1">
                                     <span className={`text-sm text-gray-900 ${
-                                      isEditMode && answers[pertanyaan.id] === opsi.nilai
-                                        ? 'font-medium text-blue-900'
+                                      answers[pertanyaan.id] === opsi.nilai
+                                        ? 'font-medium text-orange-900'
                                         : ''
                                     }`}>
                                       {opsi.label}
@@ -626,17 +545,17 @@ export default function SurveiPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="px-6 py-2"
+                className="px-6 py-2 bg-orange-600 hover:bg-orange-700"
               >
                 {submitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {isEditMode ? 'Memperbarui...' : 'Menyimpan...'}
+                    Memverifikasi Survei...
                   </>
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    {isEditMode ? 'Update Jawaban' : 'Kirim Jawaban'}
+                    Verifikasi & Simpan
                   </>
                 )}
               </Button>
@@ -664,7 +583,7 @@ export default function SurveiPage() {
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-orange-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(currentStep / Math.max(...surveyData.map(k => k.kategori.id))) * 100}%` }}
               ></div>
             </div>

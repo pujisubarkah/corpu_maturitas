@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '../../../lib/db'
 import { jawaban } from '../../../lib/schemas/jawaban'
+import { masterInstansiType } from '../../../lib/schemas/instansi'
 import { eq, and } from 'drizzle-orm'
 
 // Type definitions
@@ -45,6 +46,7 @@ export async function GET(request: Request) {
         .select({
           id: jawaban.id,
           instansi_id: jawaban.instansi_id,
+          nama_instansi: masterInstansiType.nama_instansi,
           tahun: jawaban.tahun,
           jawaban: jawaban.jawaban,
           is_verified: jawaban.is_verified,
@@ -54,6 +56,7 @@ export async function GET(request: Request) {
           updated_at: jawaban.updated_at
         })
         .from(jawaban)
+        .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
         .where(eq(jawaban.id, id))
         .limit(1)
       return NextResponse.json({
@@ -75,6 +78,7 @@ export async function GET(request: Request) {
         .select({
           id: jawaban.id,
           instansi_id: jawaban.instansi_id,
+          nama_instansi: masterInstansiType.nama_instansi,
           tahun: jawaban.tahun,
           jawaban: jawaban.jawaban,
           is_verified: jawaban.is_verified,
@@ -84,6 +88,7 @@ export async function GET(request: Request) {
           updated_at: jawaban.updated_at
         })
         .from(jawaban)
+        .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
         .where(and(eq(jawaban.instansi_id, instansiId), eq(jawaban.tahun, tahun)))
         .limit(1)
 
@@ -98,6 +103,7 @@ export async function GET(request: Request) {
       .select({
         id: jawaban.id,
         instansi_id: jawaban.instansi_id,
+        nama_instansi: masterInstansiType.nama_instansi,
         tahun: jawaban.tahun,
         jawaban: jawaban.jawaban,
         is_verified: jawaban.is_verified,
@@ -107,6 +113,7 @@ export async function GET(request: Request) {
         updated_at: jawaban.updated_at
       })
       .from(jawaban)
+      .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
       .orderBy(jawaban.created_at)
     return NextResponse.json({
       success: true,
@@ -169,6 +176,7 @@ export async function POST(request: Request) {
       .select({
         id: jawaban.id,
         instansi_id: jawaban.instansi_id,
+        nama_instansi: masterInstansiType.nama_instansi,
         tahun: jawaban.tahun,
         jawaban: jawaban.jawaban,
         is_verified: jawaban.is_verified,
@@ -178,6 +186,7 @@ export async function POST(request: Request) {
         updated_at: jawaban.updated_at
       })
       .from(jawaban)
+      .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
       .where(eq(jawaban.id, inserted.id))
       .limit(1)
     
@@ -251,6 +260,7 @@ export async function PUT(request: Request) {
       .select({
         id: jawaban.id,
         instansi_id: jawaban.instansi_id,
+        nama_instansi: masterInstansiType.nama_instansi,
         tahun: jawaban.tahun,
         jawaban: jawaban.jawaban,
         is_verified: jawaban.is_verified,
@@ -260,6 +270,7 @@ export async function PUT(request: Request) {
         updated_at: jawaban.updated_at
       })
       .from(jawaban)
+      .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
       .where(eq(jawaban.id, id as number))
       .limit(1)
 

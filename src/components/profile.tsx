@@ -26,22 +26,12 @@ export default function ProfilePage() {
     username: string;
     fullName?: string;
     full_name?: string;
+    instansiId?: number;
   } | null>(null)
   const [instansiKategoriOptions, setInstansiKategoriOptions] = useState<Array<{id: number, kat_instansi: string}>>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
-
-  // Function to convert slug to readable instansi name
-  const getInstansiName = (slug: string): string => {
-    if (!slug) return ''
-
-    // Convert slug to title case and replace hyphens with spaces
-    return slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  }
 
   // Load current user from localStorage
   useEffect(() => {
@@ -56,16 +46,52 @@ export default function ProfilePage() {
     }
   }, [])
 
-  // Set instansi automatically when component mounts or slug changes
+  // Set instansi automatically when currentUser is loaded
   useEffect(() => {
-    if (slug) {
-      const instansiName = getInstansiName(slug)
-      setFormData(prev => ({
-        ...prev,
-        instansi: instansiName
-      }))
+    const loadInstansiData = async () => {
+      if (currentUser?.instansiId) {
+        try {
+          // Fetch instansi data from API
+          const response = await fetch(`/api/master-instansi-type/${currentUser.instansiId}`)
+          const result = await response.json()
+
+          if (result.success && result.data) {
+            const { nama_instansi, kat_instansi } = result.data
+
+            // Update form data with instansi name
+            setFormData(prev => ({
+              ...prev,
+              instansi: nama_instansi
+            }))
+
+            // Find and set kategori instansi ID based on kat_instansi
+            const kategoriOption = instansiKategoriOptions.find(
+              option => option.kat_instansi === kat_instansi
+            )
+            if (kategoriOption) {
+              setFormData(prev => ({
+                ...prev,
+                instansiKategori: kategoriOption.id.toString()
+              }))
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to load instansi data:', error)
+          // Fallback: just set instansiId as string if available
+          if (currentUser?.instansiId) {
+            setFormData(prev => ({
+              ...prev,
+              instansi: currentUser.instansiId ? currentUser.instansiId.toString() : ''
+            }))
+          }
+        }
+      }
     }
-  }, [slug])
+
+    if (currentUser?.instansiId && instansiKategoriOptions.length > 0) {
+      loadInstansiData()
+    }
+  }, [currentUser, instansiKategoriOptions])
 
   // Load instansi kategori options
   useEffect(() => {
@@ -101,7 +127,6 @@ export default function ProfilePage() {
     } else if (!/^[\+]?\d{10,15}$/.test(formData.contact)) {
       newErrors.contact = 'Format nomor kontak tidak valid'
     }
-    if (!formData.instansiKategori.trim()) newErrors.instansiKategori = 'Kategori instansi wajib dipilih'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -143,8 +168,8 @@ export default function ProfilePage() {
         position: formData.position,
         unit: formData.unit,
         contact: formData.contact,
-        instansi: formData.instansi,
-        instansi_type_id: parseInt(formData.instansiKategori),
+        instansi: formData.instansi, // Send instansi name, not ID
+        ...(formData.instansiKategori && { instansi_type_id: parseInt(formData.instansiKategori) }),
         user_id: currentUser?.id || null,
         // Optional: user_id can be added when authentication is implemented
         // user_id: currentUserId,
@@ -305,34 +330,23 @@ export default function ProfilePage() {
               {/* Instansi - Full width */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Instansi</label>
-                <Input 
-                  value={formData.instansi} 
-                  readOnly 
-                  className="bg-gray-50 cursor-not-allowed" 
-                  placeholder="Instansi akan terdeteksi otomatis" 
+                <Input
+                  value={formData.instansi}
+                  readOnly
+                  className="bg-gray-50 cursor-not-allowed"
+                  placeholder="Instansi akan terdeteksi otomatis dari data login"
                 />
-                <p className="text-xs text-gray-500 mt-1">Instansi terdeteksi dari URL</p>
               </div>
 
               {/* Kategori Instansi - Full width */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Kategori Instansi *</label>
-                <select
-                  value={formData.instansiKategori}
-                  onChange={(e) => handleInputChange('instansiKategori', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.instansiKategori ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Pilih kategori instansi</option>
-                  {instansiKategoriOptions.map((kategori) => (
-                    <option key={kategori.id} value={kategori.id.toString()}>
-                      {kategori.kat_instansi}
-                    </option>
-                  ))}
-                </select>
-                {errors.instansiKategori && <p className="text-red-500 text-xs mt-1">{errors.instansiKategori}</p>}
-                <p className="text-xs text-gray-500 mt-1">Pilih kategori instansi sesuai dengan jenis lembaga Anda</p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kategori Instansi</label>
+                <Input
+                  value={instansiKategoriOptions.find(opt => opt.id.toString() === formData.instansiKategori)?.kat_instansi || ''}
+                  readOnly
+                  className="bg-gray-50 cursor-not-allowed"
+                  placeholder="Kategori instansi akan terdeteksi otomatis dari data login"
+                />
               </div>
 
               {/* Submit Button */}
