@@ -5,6 +5,7 @@ export const jawaban = pgTable('jawaban', {
   instansi_id: integer('instansi_id'),
   tahun: integer('tahun'),
   jawaban: jsonb('jawaban'),
+  bukti_dukung: jsonb('bukti_dukung'),
   verification_answers: jsonb('verification_answers'),
   is_verified: boolean('is_verified').default(false),
   verified_by: varchar('verified_by', { length: 100 }),

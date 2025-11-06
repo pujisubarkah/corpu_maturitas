@@ -20,12 +20,20 @@ interface JawabanInsert {
   instansi_id: number;
   tahun: number;
   jawaban: JawabanItem[];
+  bukti_dukung?: BuktiDukungItem[];
+}
+
+interface BuktiDukungItem {
+  kategori_id: number;
+  kategori_nama: string;
+  bukti_dukung: string;
 }
 
 interface JawabanUpdate {
   instansi_id?: number;
   tahun?: number;
   jawaban?: JawabanItem[];
+  bukti_dukung?: BuktiDukungItem[];
 }
 
 // GET: Get jawaban by id, or by instansi_id and tahun, or get all
@@ -49,6 +57,7 @@ export async function GET(request: Request) {
           nama_instansi: masterInstansiType.nama_instansi,
           tahun: jawaban.tahun,
           jawaban: jawaban.jawaban,
+          bukti_dukung: jawaban.bukti_dukung,
           verification_answers: jawaban.verification_answers,
           is_verified: jawaban.is_verified,
           verified_by: jawaban.verified_by,
@@ -82,6 +91,7 @@ export async function GET(request: Request) {
           nama_instansi: masterInstansiType.nama_instansi,
           tahun: jawaban.tahun,
           jawaban: jawaban.jawaban,
+          bukti_dukung: jawaban.bukti_dukung,
           verification_answers: jawaban.verification_answers,
           is_verified: jawaban.is_verified,
           verified_by: jawaban.verified_by,
@@ -108,6 +118,7 @@ export async function GET(request: Request) {
         nama_instansi: masterInstansiType.nama_instansi,
         tahun: jawaban.tahun,
         jawaban: jawaban.jawaban,
+        bukti_dukung: jawaban.bukti_dukung,
         verification_answers: jawaban.verification_answers,
         is_verified: jawaban.is_verified,
         verified_by: jawaban.verified_by,
@@ -137,7 +148,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'Invalid body' }, { status: 400 })
     }
 
-    const { instansi_id, tahun, jawaban: jawabanData } = body as Record<string, unknown>
+    const { instansi_id, tahun, jawaban: jawabanData, bukti_dukung: buktiDukungData } = body as Record<string, unknown>
 
     // Validation
     if (!instansi_id || typeof instansi_id !== 'number') {
@@ -170,6 +181,7 @@ export async function POST(request: Request) {
       instansi_id: instansi_id as number,
       tahun: tahun as number,
       jawaban: jawabanData as JawabanItem[],
+      bukti_dukung: buktiDukungData as BuktiDukungItem[] | undefined,
     }
 
     const [inserted] = await db.insert(jawaban).values(values).returning()
@@ -182,6 +194,7 @@ export async function POST(request: Request) {
         nama_instansi: masterInstansiType.nama_instansi,
         tahun: jawaban.tahun,
         jawaban: jawaban.jawaban,
+        bukti_dukung: jawaban.bukti_dukung,
         verification_answers: jawaban.verification_answers,
         is_verified: jawaban.is_verified,
         verified_by: jawaban.verified_by,
@@ -214,7 +227,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, message: 'Invalid body' }, { status: 400 })
     }
 
-    const { id, instansi_id, tahun, jawaban: jawabanData } = body as Record<string, unknown>
+    const { id, instansi_id, tahun, jawaban: jawabanData, bukti_dukung: buktiDukungData } = body as Record<string, unknown>
 
     if (!id || typeof id !== 'number') {
       return NextResponse.json({ success: false, message: 'id wajib diisi dan harus berupa angka' }, { status: 400 })
@@ -255,6 +268,13 @@ export async function PUT(request: Request) {
         return NextResponse.json({ success: false, message: 'jawaban harus berupa array' }, { status: 400 })
       }
       updateData.jawaban = jawabanData as JawabanItem[]
+    }
+
+    if (buktiDukungData !== undefined) {
+      if (!Array.isArray(buktiDukungData)) {
+        return NextResponse.json({ success: false, message: 'bukti_dukung harus berupa array' }, { status: 400 })
+      }
+      updateData.bukti_dukung = buktiDukungData as BuktiDukungItem[]
     }
 
     await db.update(jawaban).set(updateData).where(eq(jawaban.id, id as number))

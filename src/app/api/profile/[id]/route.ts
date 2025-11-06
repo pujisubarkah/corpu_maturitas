@@ -6,9 +6,10 @@ import { eq } from 'drizzle-orm';
 // GET /api/profile/[user_id]
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = Number(params.id);
+  const { id } = await params;
+  const userId = Number(id);
   if (Number.isNaN(userId)) {
     return NextResponse.json({ success: false, message: 'Invalid user_id' }, { status: 400 });
   }

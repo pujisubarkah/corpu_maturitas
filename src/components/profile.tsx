@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
 
+
   // Load current user from localStorage
   useEffect(() => {
     try {
@@ -45,6 +46,31 @@ export default function ProfilePage() {
       console.warn('Failed to load current user from localStorage:', error)
     }
   }, [])
+
+  // Load profile data from API if user is logged in
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetch(`/api/profile/${currentUser.id}`)
+        .then(res => res.json())
+        .then(result => {
+          if (result.success && result.data) {
+            setFormData({
+              name: result.data.nama_lengkap || '',
+              nip: result.data.nip || '',
+              email: result.data.email || '',
+              position: result.data.position || '',
+              unit: result.data.unit || '',
+              contact: result.data.contact || '',
+              instansi: result.data.instansi || '',
+              instansiKategori: result.data.instansi_type_id ? result.data.instansi_type_id.toString() : '',
+            })
+          }
+        })
+        .catch(error => {
+          console.warn('Failed to load profile data:', error)
+        })
+    }
+  }, [currentUser])
 
   // Set instansi automatically when currentUser is loaded
   useEffect(() => {
@@ -292,37 +318,37 @@ export default function ProfilePage() {
                 {/* Nama Lengkap */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-                  <Input value={formData.name} onChange={e => handleInputChange('name', e.target.value)} placeholder="Masukkan nama lengkap" className={errors.name ? 'border-red-500' : ''} />
+                  <Input value={formData.name} onChange={e => handleInputChange('name', e.target.value)} placeholder="Masukkan nama lengkap" className={`${errors.name ? 'border-red-500' : formData.name ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`} />
                   {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                 </div>
                 {/* NIP */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">NIP *</label>
-                  <Input value={formData.nip} onChange={e => handleInputChange('nip', e.target.value)} placeholder="Masukkan NIP" className={errors.nip ? 'border-red-500' : ''} />
+                  <Input value={formData.nip} onChange={e => handleInputChange('nip', e.target.value)} placeholder="Masukkan NIP" className={`${errors.nip ? 'border-red-500' : formData.nip ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`} />
                   {errors.nip && <p className="text-red-500 text-xs mt-1">{errors.nip}</p>}
                 </div>
                 {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                  <Input type="email" value={formData.email} onChange={e => handleInputChange('email', e.target.value)} placeholder="contoh@email.com" className={errors.email ? 'border-red-500' : ''} />
+                  <Input type="email" value={formData.email} onChange={e => handleInputChange('email', e.target.value)} placeholder="contoh@email.com" className={`${errors.email ? 'border-red-500' : formData.email ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`} />
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
                 {/* Jabatan */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Jabatan *</label>
-                  <Input value={formData.position} onChange={e => handleInputChange('position', e.target.value)} placeholder="Jabatan" className={errors.position ? 'border-red-500' : ''} />
+                  <Input value={formData.position} onChange={e => handleInputChange('position', e.target.value)} placeholder="Jabatan" className={`${errors.position ? 'border-red-500' : formData.position ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`} />
                   {errors.position && <p className="text-red-500 text-xs mt-1">{errors.position}</p>}
                 </div>
                 {/* Unit Kerja */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Unit Kerja *</label>
-                  <Input value={formData.unit} onChange={e => handleInputChange('unit', e.target.value)} placeholder="Unit Kerja" className={errors.unit ? 'border-red-500' : ''} />
+                  <Input value={formData.unit} onChange={e => handleInputChange('unit', e.target.value)} placeholder="Unit Kerja" className={`${errors.unit ? 'border-red-500' : formData.unit ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`} />
                   {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit}</p>}
                 </div>
                 {/* Nomor Kontak */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Kontak *</label>
-                  <Input value={formData.contact} onChange={e => handleInputChange('contact', e.target.value)} placeholder="Nomor Kontak" className={errors.contact ? 'border-red-500' : ''} />
+                  <Input value={formData.contact} onChange={e => handleInputChange('contact', e.target.value)} placeholder="Nomor Kontak" className={`${errors.contact ? 'border-red-500' : formData.contact ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`} />
                   {errors.contact && <p className="text-red-500 text-xs mt-1">{errors.contact}</p>}
                 </div>
               </div>

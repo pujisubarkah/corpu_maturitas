@@ -60,17 +60,6 @@ interface OpsiJawabanApiResponse {
   data: OpsiJawabanData[];
 }
 
-interface ExistingAnswer {
-  kategori_id: number;
-  kategori_nama: string;
-  pertanyaan_id: number;
-  pertanyaan_kode: string | null;
-  pertanyaan: string | null;
-  jawaban: string | number;
-  tipe_jawaban: string | null;
-  urutan: number | null;
-}
-
 export default function SurveiPage() {
   const params = useParams();
   const slug = params?.slug as string;
@@ -78,6 +67,7 @@ export default function SurveiPage() {
   const [surveyData, setSurveyData] = useState<KategoriData[]>([]);
   const [opsiJawabanData, setOpsiJawabanData] = useState<OpsiJawabanData[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [buktiDukung, setBuktiDukung] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -101,41 +91,123 @@ export default function SurveiPage() {
       }
 
       const user = JSON.parse(currentUser);
-      if (!user.instansiId) {
+      if (!user.id) {
         setIsEditMode(false);
-        return; // No instansiId, can't load answers
+        return; // No user id
       }
 
-      const instansiId = user.instansiId;
+      const userId = user.id;
 
-      // Fetch existing answers for selected year
-      const response = await fetch(`/api/jawaban?instansi_id=${instansiId}&tahun=${selectedYear}`);
-      const data = await response.json();
+      // Get unique endpoints and create field mapping
+      const endpoints: string[] = [];
+      const fieldToQuestionMap: Record<string, Record<string, number>> = {};
 
-      if (data.success && data.data && data.data.jawaban) {
-        // Parse existing answers and populate the form
-        const existingAnswers: Record<number, string> = {};
+      surveyData.forEach(kategoriData => {
+        const step = kategoriData.kategori.id!;
+        let endpoint = '/api/kompetensi_generik_nasional';
+        let fieldOffset = 1;
+        if (step === 2) {
+          endpoint = '/api/struktur_asn_corpu';
+          fieldOffset = 7;
+        } else if (step === 3) {
+          endpoint = '/api/manajemen_pengetahuan';
+          fieldOffset = 11;
+        } else if (step === 4) {
+          endpoint = '/api/forum_pembelajaran';
+          fieldOffset = 16;
+        } else if (step === 5) {
+          endpoint = '/api/sistem_pembelajaran';
+          fieldOffset = 20;
+        } else if (step === 6) {
+          endpoint = '/api/strategi_pembelajaran';
+          fieldOffset = 24;
+        } else if (step === 7) {
+          endpoint = '/api/teknologi_pembelajaran';
+          fieldOffset = 29;
+        } else if (step === 8) {
+          endpoint = '/api/integrasi_sistem';
+          fieldOffset = 34;
+        } else if (step === 9) {
+          endpoint = '/api/evaluasi_asn_corpu';
+          fieldOffset = 38;
+        }
 
-        // data.data.jawaban is an array of answer objects
-        data.data.jawaban.forEach((answer: ExistingAnswer) => {
-          existingAnswers[answer.pertanyaan_id] = answer.jawaban.toString();
+        if (!endpoints.includes(endpoint)) {
+          endpoints.push(endpoint);
+        }
+
+        kategoriData.pertanyaan.forEach((pertanyaan, index) => {
+          const fieldName = `p${fieldOffset + index}`;
+          if (!fieldToQuestionMap[endpoint]) {
+            fieldToQuestionMap[endpoint] = {};
+          }
+          fieldToQuestionMap[endpoint][fieldName] = pertanyaan.id;
         });
+      });
 
-        setAnswers(existingAnswers);
-        setIsEditMode(true);
-        console.log('Loaded existing answers for year', selectedYear, ':', existingAnswers);
-      } else {
-        // No existing answers for this year
-        setAnswers({});
-        setIsEditMode(false);
-        console.log('No existing answers for year', selectedYear);
-      }
-    } catch (error) {
-      console.error('Error loading existing answers:', error);
+      // Fetch data from all endpoints
+      const fetchPromises = endpoints.map(endpoint =>
+        fetch(`${endpoint}?userId=${userId}&tahun=${selectedYear}`)
+          .then(res => res.json())
+          .catch(err => {
+            console.error(`Error fetching from ${endpoint}:`, err);
+            return { data: [] }; // Return empty array on error
+          })
+      );
+
+      const results = await Promise.all(fetchPromises);
+
+      // Parse existing answers
+      const existingAnswers: Record<number, string> = {};
+      const existingBuktiDukung: Record<number, string> = {};
+
+      results.forEach((result, index) => {
+        const endpoint = endpoints[index];
+        if (result.data && Array.isArray(result.data)) {
+          result.data.forEach((record: Record<string, unknown>) => {
+            // Map fields like p1, p2, vp1, vp2, etc. to answers using fieldToQuestionMap
+            Object.keys(record).forEach(field => {
+              if (field.startsWith('p') && fieldToQuestionMap[endpoint]?.[field]) {
+                const questionId = fieldToQuestionMap[endpoint][field];
+                existingAnswers[questionId] = record[field]?.toString() || '';
+              }
+            });
+
+            // Handle bukti_dukung - map to kategori based on endpoint
+            if (record.buktiDukung && typeof record.buktiDukung === 'string') {
+              let kategoriId = null;
+              if (endpoint === '/api/kompetensi_generik_nasional') kategoriId = 1;
+              else if (endpoint === '/api/struktur_asn_corpu') kategoriId = 2;
+              else if (endpoint === '/api/manajemen_pengetahuan') kategoriId = 3;
+              else if (endpoint === '/api/forum_pembelajaran') kategoriId = 4;
+              else if (endpoint === '/api/sistem_pembelajaran') kategoriId = 5;
+              else if (endpoint === '/api/strategi_pembelajaran') kategoriId = 6;
+              else if (endpoint === '/api/teknologi_pembelajaran') kategoriId = 7;
+              else if (endpoint === '/api/integrasi_sistem') kategoriId = 8;
+              else if (endpoint === '/api/evaluasi_asn_corpu') kategoriId = 9;
+
+              if (kategoriId) {
+                existingBuktiDukung[kategoriId] = record.buktiDukung;
+              }
+            }
+          });
+        }
+      });
+
+      setAnswers(existingAnswers);
+      setBuktiDukung(existingBuktiDukung);
+
+      // Check if any answers were loaded
+      const hasAnswers = Object.keys(existingAnswers).length > 0;
+      setIsEditMode(hasAnswers);
+
+      console.log('Loaded existing answers for year', selectedYear, ':', existingAnswers);
+    } catch (_error) {
+      console.error('Error loading existing answers:', _error);
       setIsEditMode(false);
       // Don't show error to user, just continue with empty form
     }
-  }, [selectedYear]);
+  }, [selectedYear, surveyData]);
 
   useEffect(() => {
     // Load existing answers when survey data is loaded or year changes
@@ -190,18 +262,148 @@ export default function SurveiPage() {
     return missingAnswers.length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateCurrentStep()) {
       setError(`Mohon lengkapi semua pertanyaan wajib di kategori ini sebelum lanjut ke langkah berikutnya`);
       return;
     }
 
-    setError(null);
-    const nextStep = currentStep + 1;
-    const nextKategoriExists = surveyData.some(k => k.kategori.id === nextStep);
+    // Submit current step data before moving to next step
+    try {
+      setSubmitting(true);
+      setError(null);
 
-    if (nextKategoriExists) {
-      setCurrentStep(nextStep);
+      // Check if user is logged in
+      const currentUser = localStorage.getItem('currentUser');
+      if (!currentUser) {
+        alert('Anda harus login terlebih dahulu untuk mengirim survei.');
+        window.location.href = '/login';
+        return;
+      }
+
+      // Get userId from localStorage
+      let userId: number;
+      try {
+        const user = JSON.parse(currentUser);
+        if (user.id && typeof user.id === 'number') {
+          userId = user.id;
+        } else {
+          alert('Data user tidak valid. Silakan login kembali.');
+          window.location.href = '/login';
+          return;
+        }
+      } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
+        alert('Terjadi kesalahan pada data login. Silakan login kembali.');
+        window.location.href = '/login';
+        return;
+      }
+
+      // Group answers for current step only
+      const groupedAnswers: Record<string, Record<string, string | number>> = {};
+
+      const currentKategoriData = surveyData.find(k => k.kategori.id === currentStep);
+      if (currentKategoriData) {
+        // Special handling for different steps
+        let endpoint = '/api/kompetensi_generik_nasional';
+        let fieldOffset = 1; // Starting field number for mapping
+        if (currentStep === 2) {
+          endpoint = '/api/struktur_asn_corpu';
+          fieldOffset = 7;
+        } else if (currentStep === 3) {
+          endpoint = '/api/manajemen_pengetahuan';
+          fieldOffset = 11;
+        } else if (currentStep === 4) {
+          endpoint = '/api/forum_pembelajaran';
+          fieldOffset = 16;
+        } else if (currentStep === 5) {
+          endpoint = '/api/sistem_pembelajaran';
+          fieldOffset = 20;
+        } else if (currentStep === 6) {
+          endpoint = '/api/strategi_pembelajaran';
+          fieldOffset = 24;
+        } else if (currentStep === 7) {
+          endpoint = '/api/teknologi_pembelajaran';
+          fieldOffset = 29;
+        } else if (currentStep === 8) {
+          endpoint = '/api/integrasi_sistem';
+          fieldOffset = 34;
+        } else if (currentStep === 9) {
+          endpoint = '/api/evaluasi_asn_corpu';
+          fieldOffset = 38;
+        }
+
+        currentKategoriData.pertanyaan.forEach((pertanyaan, index) => {
+          const answer = answers[pertanyaan.id];
+          if (answer !== undefined && answer !== '') {
+            if (!groupedAnswers[endpoint]) {
+              groupedAnswers[endpoint] = { userId, tahun: selectedYear };
+            }
+            // Map fields based on step using fieldOffset
+            groupedAnswers[endpoint][`p${fieldOffset + index}`] = pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer;
+          }
+        });
+
+        // Add bukti_dukung for current step
+        const bukti = buktiDukung[currentStep];
+        if (bukti && bukti.trim() !== '') {
+          if (groupedAnswers[endpoint]) {
+            groupedAnswers[endpoint].buktiDukung = bukti;
+          }
+        }
+
+        // Submit current step data
+        if (Object.keys(groupedAnswers).length > 0) {
+          const submitPromises = Object.entries(groupedAnswers).map(async ([endpoint, data]) => {
+            // Check if data already exists for this user and year
+            const checkResponse = await fetch(`${endpoint}?userId=${userId}&tahun=${selectedYear}`);
+            const checkData = await checkResponse.json();
+            const existingRecords = checkData.data || [];
+
+            let method = 'POST';
+            let submitData = data;
+            let existingId = null;
+
+            if (existingRecords.length > 0) {
+              // Update existing record
+              method = 'PUT';
+              existingId = existingRecords[0].id;
+              submitData = { id: existingId, ...data };
+            }
+
+            const response = await fetch(endpoint, {
+              method: method,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(submitData)
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`HTTP ${response.status} for ${endpoint}: ${errorText}`);
+            }
+
+            return response.json();
+          });
+
+          await Promise.all(submitPromises);
+        }
+      }
+
+      // Move to next step
+      setError(null);
+      const nextStep = currentStep + 1;
+      const nextKategoriExists = surveyData.some(k => k.kategori.id === nextStep);
+
+      if (nextKategoriExists) {
+        setCurrentStep(nextStep);
+      }
+
+    } catch (err) {
+      console.error('Error submitting current step:', err);
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan jawaban');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -217,6 +419,13 @@ export default function SurveiPage() {
     setAnswers(prev => ({
       ...prev,
       [questionId]: value
+    }));
+  };
+
+  const handleBuktiDukungChange = (kategoriId: number, value: string) => {
+    setBuktiDukung(prev => ({
+      ...prev,
+      [kategoriId]: value
     }));
   };
 
@@ -265,109 +474,121 @@ export default function SurveiPage() {
         return;
       }
 
-      // Get instansi_id from localStorage or calculate from slug
-      let instansiId: number = 1; // Default fallback
-      if (currentUser) {
-        try {
-          const user = JSON.parse(currentUser);
-          if (user.instansiId && typeof user.instansiId === 'number') {
-            instansiId = user.instansiId;
-            console.log('Using instansiId from localStorage:', instansiId);
-          } else {
-            console.log('No valid instansiId in localStorage, user data:', user);
-            alert('Data instansi tidak valid. Silakan login kembali.');
-            window.location.href = '/login';
-            return;
-          }
-        } catch (error) {
-          console.log('Error parsing localStorage currentUser:', error);
-          alert('Terjadi kesalahan pada data login. Silakan login kembali.');
+      // Get userId from localStorage
+      let userId: number;
+      try {
+        const user = JSON.parse(currentUser);
+        if (user.id && typeof user.id === 'number') {
+          userId = user.id;
+        } else {
+          alert('Data user tidak valid. Silakan login kembali.');
           window.location.href = '/login';
           return;
         }
-      }      // Prepare answers data as array for database trigger
-      const surveyAnswers: Array<{
-        kategori_id: number;
-        kategori_nama: string;
-        pertanyaan_id: number;
-        pertanyaan_kode: string | null;
-        pertanyaan: string | null;
-        jawaban: string | number;
-        tipe_jawaban: string | null;
-        urutan: number | null;
-      }> = [];
-      surveyData.forEach((kategoriData) => {
-        kategoriData.pertanyaan.forEach((pertanyaan) => {
+      } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
+        alert('Terjadi kesalahan pada data login. Silakan login kembali.');
+        window.location.href = '/login';
+        return;
+      }
+
+      // Submit final step data (current step is the last one)
+      const currentKategoriData = surveyData.find(k => k.kategori.id === currentStep);
+      if (currentKategoriData) {
+        const groupedAnswers: Record<string, Record<string, string | number>> = {};
+
+        // Determine endpoint and field offset for final step
+        let endpoint = '/api/kompetensi_generik_nasional';
+        let fieldOffset = 1;
+        if (currentStep === 2) {
+          endpoint = '/api/struktur_asn_corpu';
+          fieldOffset = 7;
+        } else if (currentStep === 3) {
+          endpoint = '/api/manajemen_pengetahuan';
+          fieldOffset = 11;
+        } else if (currentStep === 4) {
+          endpoint = '/api/forum_pembelajaran';
+          fieldOffset = 16;
+        } else if (currentStep === 5) {
+          endpoint = '/api/sistem_pembelajaran';
+          fieldOffset = 20;
+        } else if (currentStep === 6) {
+          endpoint = '/api/strategi_pembelajaran';
+          fieldOffset = 24;
+        } else if (currentStep === 7) {
+          endpoint = '/api/teknologi_pembelajaran';
+          fieldOffset = 29;
+        } else if (currentStep === 8) {
+          endpoint = '/api/integrasi_sistem';
+          fieldOffset = 34;
+        } else if (currentStep === 9) {
+          endpoint = '/api/evaluasi_asn_corpu';
+          fieldOffset = 38;
+        }
+
+        currentKategoriData.pertanyaan.forEach((pertanyaan, index) => {
           const answer = answers[pertanyaan.id];
-          if (answer !== undefined && answer !== '') {
-            surveyAnswers.push({
-              kategori_id: kategoriData.kategori.id,
-              kategori_nama: kategoriData.kategori.nama,
-              pertanyaan_id: pertanyaan.id,
-              pertanyaan_kode: pertanyaan.kode,
-              pertanyaan: pertanyaan.pertanyaan,
-              jawaban: pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer,
-              tipe_jawaban: pertanyaan.tipe_jawaban,
-              urutan: pertanyaan.urutan
-            });
+          if (answer !== undefined && answer !== '' && pertanyaan.kode) {
+            if (!groupedAnswers[endpoint]) {
+              groupedAnswers[endpoint] = { userId, tahun: selectedYear };
+            }
+            groupedAnswers[endpoint][`p${fieldOffset + index}`] = pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer;
           }
         });
-      });
 
-      // Check if survey already exists for this instansi and selected year
-      const checkResponse = await fetch(`/api/jawaban?instansi_id=${instansiId}&tahun=${selectedYear}`);
-      const checkData = await checkResponse.json();
-
-      let submitMethod = 'POST';
-      const submitUrl = '/api/jawaban';
-      let existingId = null;
-
-      if (checkData.success && checkData.data) {
-        // Survey already exists, update it
-        submitMethod = 'PUT';
-        existingId = checkData.data.id;
-      }
-
-      // Submit to API
-      const submitData = submitMethod === 'PUT'
-        ? {
-            id: existingId,
-            instansi_id: instansiId,
-            tahun: selectedYear,
-            jawaban: surveyAnswers
+        // Add bukti_dukung for final step
+        const bukti = buktiDukung[currentStep];
+        if (bukti && bukti.trim() !== '') {
+          if (groupedAnswers[endpoint]) {
+            groupedAnswers[endpoint].buktiDukung = bukti;
           }
-        : {
-            instansi_id: instansiId,
-            tahun: selectedYear,
-            jawaban: surveyAnswers
-          };
+        }
 
-      const response = await fetch(submitUrl, {
-        method: submitMethod,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData)
-      });
+        // Submit final step data
+        if (Object.keys(groupedAnswers).length > 0) {
+          const submitPromises = Object.entries(groupedAnswers).map(async ([endpoint, data]) => {
+            // Check if data already exists for this user and year
+            const checkResponse = await fetch(`${endpoint}?userId=${userId}&tahun=${selectedYear}`);
+            const checkData = await checkResponse.json();
+            const existingRecords = checkData.data || [];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+            let method = 'POST';
+            let submitData = data;
+            let existingId = null;
+
+            if (existingRecords.length > 0) {
+              // Update existing record
+              method = 'PUT';
+              existingId = existingRecords[0].id;
+              submitData = { id: existingId, ...data };
+            }
+
+            const response = await fetch(endpoint, {
+              method: method,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(submitData)
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`HTTP ${response.status} for ${endpoint}: ${errorText}`);
+            }
+
+            return response.json();
+          });
+
+          await Promise.all(submitPromises);
+        }
       }
 
-      const result = await response.json();
+      alert('Terima kasih! Jawaban survei Anda telah berhasil disimpan/diperbarui.');
+      // Reload existing answers to reflect changes
+      loadExistingAnswers();
 
-      if (result.success) {
-        alert(submitMethod === 'PUT' ? 'Jawaban survei Anda telah berhasil diperbarui.' : 'Terima kasih! Jawaban survei Anda telah berhasil disimpan.');
-        // Reload existing answers to reflect changes
-        loadExistingAnswers();
-      } else {
-        throw new Error(result.message || 'Gagal menyimpan jawaban');
-      }
-
-    } catch (err) {
-      console.error('Error submitting survey:', err);
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan jawaban');
+    } catch (_error) {
+      console.error('Error submitting survey:', _error);
+      setError(_error instanceof Error ? _error.message : 'Terjadi kesalahan saat menyimpan jawaban');
     } finally {
       setSubmitting(false);
     }
@@ -600,6 +821,37 @@ export default function SurveiPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Bukti Dukung Section */}
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Bukti Dukung
+                  </h3>
+                  <p className="text-sm text-blue-700 mb-4">
+                    Silakan berikan bukti dukung atau penjelasan tambahan untuk kategori {surveyData.find(k => k.kategori.id === currentStep)?.kategori.nama}.
+                    Ini akan membantu kami memahami implementasi yang telah dilakukan.
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Link Bukti Dukung
+                      </label>
+                      <Input
+                        type="url"
+                        value={buktiDukung[currentStep] || ''}
+                        onChange={(e) => handleBuktiDukungChange(currentStep, e.target.value)}
+                        placeholder="https://contoh-link-bukti-dukung.com"
+                        className={`w-full ${isEditMode && buktiDukung[currentStep] ? 'border-blue-500 bg-blue-50 text-blue-600' : ''}`}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Masukkan link ke dokumen, laporan, atau bukti dukung lainnya
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -643,9 +895,19 @@ export default function SurveiPage() {
             ) : (
               <Button
                 onClick={handleNext}
+                disabled={submitting}
                 className="px-6 py-2"
               >
-                Selanjutnya →
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    Selanjutnya →
+                  </>
+                )}
               </Button>
             )}
           </div>

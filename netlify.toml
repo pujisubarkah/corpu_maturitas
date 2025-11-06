@@ -10,39 +10,17 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Redirects: keep minimal defaults; Netlify Next.js plugin will handle most routes.
-[[redirects]]
-  from = "/_next/*"
-  to = "/_next/:splat"
-  status = 200
+# Redirects: only include necessary mappings. The Netlify Next.js plugin will
+# handle App Router and most framework routes automatically.
 
-# Optional: API routes handled by Netlify Functions if you adapt them that way.
-# Uncomment / adapt if you convert server endpoints to Netlify Functions.
-# [[redirects]]
-#   from = "/api/*"
-#   to = "/.netlify/functions/:splat"
-#   status = 200
-[build]
-  command = "npm run build"
-  publish = ".next"
+# If you convert server endpoints to Netlify Functions, uncomment the API redirect below
+#[[redirects]]
+#  from = "/api/*"
+#  to = "/.netlify/functions/:splat"
+#  status = 200
 
-[build.environment]
-  NODE_VERSION = "18"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
+# Static asset passthroughs (optional)
 [[redirects]]
   from = "/_next/static/*"
-  to = "/static/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
+  to = "/_next/static/:splat"
   status = 200
