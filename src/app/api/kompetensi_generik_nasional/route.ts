@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
-import { kompetensiGenerikNasional } from "../../../lib/schemas/profile_surveys";
+import { kompetensiGenerikNasional, surveiCorpu } from "../../../lib/schemas/profile_surveys";
 import { eq, and } from "drizzle-orm";
+
+// Utility function to convert BigInt values to numbers
+function convertBigIntToNumber(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'bigint') return Number(obj);
+  if (Array.isArray(obj)) return obj.map(convertBigIntToNumber);
+  if (typeof obj === 'object') {
+    const converted: Record<string, unknown> = {};
+    for (const key in obj as Record<string, unknown>) {
+      converted[key] = convertBigIntToNumber((obj as Record<string, unknown>)[key]);
+    }
+    return converted;
+  }
+  return obj;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -9,10 +24,20 @@ export async function GET(request: NextRequest) {
   const tahun = searchParams.get('tahun');
 
   if (userId && tahun) {
-    const data = await db.select().from(kompetensiGenerikNasional).where(and(
-      eq(kompetensiGenerikNasional.userId, parseInt(userId)),
-      eq(kompetensiGenerikNasional.tahun, parseInt(tahun))
+    // First find the surveiCorpu record
+    const surveiRecord = await db.select().from(surveiCorpu).where(and(
+      eq(surveiCorpu.userId, parseInt(userId)),
+      eq(surveiCorpu.tahun, parseInt(tahun))
     ));
+
+    if (surveiRecord.length === 0) {
+      return NextResponse.json({ data: [] });
+    }
+
+    // Then find the kompetensiGenerikNasional record
+    const data = await db.select().from(kompetensiGenerikNasional).where(
+      eq(kompetensiGenerikNasional.surveiId, surveiRecord[0].id)
+    );
     return NextResponse.json({ data });
   } else {
     const data = await db.select().from(kompetensiGenerikNasional);
@@ -22,8 +47,18 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { id, ...updateData } = body;
-  const updated = await db.update(kompetensiGenerikNasional).set(updateData).where(eq(kompetensiGenerikNasional.id, id)).returning();
+  const { surveiId, ...updateData } = body;
+
+  if (!surveiId) {
+    return NextResponse.json({ error: 'surveiId is required' }, { status: 400 });
+  }
+
+  const updated = await db.update(kompetensiGenerikNasional).set(updateData).where(eq(kompetensiGenerikNasional.surveiId, surveiId)).returning();
+
+  if (updated.length === 0) {
+    return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+  }
+
   return NextResponse.json(updated[0]);
 }
 
@@ -31,25 +66,47 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { userId, tahun, ...data } = body;
 
-  // Check if record exists
-  const existing = await db.select().from(kompetensiGenerikNasional).where(and(
-    eq(kompetensiGenerikNasional.userId, userId),
-    eq(kompetensiGenerikNasional.tahun, tahun)
+  // First get or create the surveiCorpu record
+  const surveiRecord = await db.select().from(surveiCorpu).where(and(
+    eq(surveiCorpu.userId, userId),
+    eq(surveiCorpu.tahun, tahun)
   ));
+
+  let surveiId: number;
+  if (surveiRecord.length > 0) {
+    surveiId = surveiRecord[0].id;
+  } else {
+    const inserted = await db.insert(surveiCorpu).values({ userId, tahun }).returning();
+    surveiId = inserted[0].id;
+  }
+
+  // Check if kompetensiGenerikNasional record exists
+  const existing = await db.select().from(kompetensiGenerikNasional).where(
+    eq(kompetensiGenerikNasional.surveiId, surveiId)
+  );
 
   if (existing.length > 0) {
     // Update existing record
     const updated = await db.update(kompetensiGenerikNasional)
       .set(data)
-      .where(and(
-        eq(kompetensiGenerikNasional.userId, userId),
-        eq(kompetensiGenerikNasional.tahun, tahun)
-      ))
+      .where(eq(kompetensiGenerikNasional.surveiId, surveiId))
       .returning();
-    return NextResponse.json(updated[0]);
+
+    if (updated.length === 0) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    // Convert BigInt values to numbers for JSON serialization
+    const result = convertBigIntToNumber(updated[0]);
+
+    return NextResponse.json(result);
   } else {
     // Insert new record
-    const inserted = await db.insert(kompetensiGenerikNasional).values({ userId, tahun, ...data }).returning();
-    return NextResponse.json(inserted[0]);
+    const inserted = await db.insert(kompetensiGenerikNasional).values({ surveiId, ...data }).returning();
+
+    // Convert BigInt values to numbers for JSON serialization
+    const result = convertBigIntToNumber(inserted[0]);
+
+    return NextResponse.json(result);
   }
 }

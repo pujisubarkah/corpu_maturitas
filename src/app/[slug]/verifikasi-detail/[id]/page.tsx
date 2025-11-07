@@ -79,6 +79,10 @@ interface SurveyData {
   updated_at: string;
 }
 
+interface AnswerData {
+  [key: string]: string | number | null;
+}
+
 export default function VerificationDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -92,25 +96,78 @@ export default function VerificationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDescription, setShowDescription] = useState<Record<number, boolean>>({});
+  const [buktiDukung, setBuktiDukung] = useState<Record<number, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
   const [existingSurvey, setExistingSurvey] = useState<SurveyData | null>(null);
 
   useEffect(() => {
     if (surveyId) {
+      fetchSurveyData();
+      fetchOpsiJawabanData();
+    }
+  }, [surveyId]);
+
+  useEffect(() => {
+    if (surveyId && surveyData.length > 0) {
       const fetchExistingSurvey = async () => {
         try {
-          const response = await fetch(`/api/jawaban?id=${surveyId}`);
+          const response = await fetch(`/api/answer?id=${surveyId}`);
           const data = await response.json();
 
           if (data.success && data.data) {
-            setExistingSurvey(data.data);
-
-            // Populate answers from existing survey
-            const existingAnswers: Record<number, string> = {};
-            data.data.jawaban.forEach((answer: ExistingAnswer) => {
-              existingAnswers[answer.pertanyaan_id] = answer.jawaban.toString();
+            setExistingSurvey({
+              id: data.data.surveiId,
+              instansi_id: data.data.userId,
+              nama_instansi: data.data.fullName || 'Unknown',
+              tahun: data.data.tahun,
+              jawaban: [], // Will be populated from flattened p1-p41 data
+              is_verified: false, // TODO: Add verification status
+              verified_by: null,
+              verified_at: null,
+              created_at: data.data.createdAt,
+              updated_at: data.data.updatedAt
             });
+
+            // Convert flattened p1-p41 data to answers format
+            const existingAnswers: Record<number, string> = {};
+
+            // Map p1-p41 back to question IDs based on survey structure
+            let questionIndex = 1;
+            surveyData.forEach((kategoriData) => {
+              kategoriData.pertanyaan.forEach((pertanyaan) => {
+                const fieldName = `p${questionIndex}`;
+                const answer = (data.data as AnswerData)[fieldName];
+                if (answer !== undefined && answer !== null) {
+                  existingAnswers[pertanyaan.id] = answer.toString();
+                }
+                questionIndex++;
+              });
+            });
+
+            // Load bukti_dukung data
+            const existingBuktiDukung: Record<number, string> = {};
+            const buktiDukungMapping: Record<number, string> = {
+              1: 'buktiDukungKompetensi',
+              2: 'buktiDukungStruktur',
+              3: 'buktiDukungManajemen',
+              4: 'buktiDukungForum',
+              5: 'buktiDukungSistem',
+              6: 'buktiDukungStrategi',
+              7: 'buktiDukungTeknologi',
+              8: 'buktiDukungIntegrasi',
+              9: 'buktiDukungEvaluasi'
+            };
+
+            surveyData.forEach((kategoriData) => {
+              const buktiField = buktiDukungMapping[kategoriData.kategori.id];
+              const buktiValue = (data.data as AnswerData)[buktiField];
+              if (buktiValue && typeof buktiValue === 'string') {
+                existingBuktiDukung[kategoriData.kategori.id] = buktiValue;
+              }
+            });
+
             setAnswers(existingAnswers);
+            setBuktiDukung(existingBuktiDukung);
           }
         } catch (error) {
           console.error('Error fetching existing survey:', error);
@@ -119,10 +176,8 @@ export default function VerificationDetailPage() {
       };
 
       fetchExistingSurvey();
-      fetchSurveyData();
-      fetchOpsiJawabanData();
     }
-  }, [surveyId]);
+  }, [surveyId, surveyData]);
 
   const fetchSurveyData = async () => {
     try {
@@ -193,10 +248,11 @@ export default function VerificationDetailPage() {
     }
   };
 
-  const handleAnswerChange = (questionId: number, value: string) => {
+  // Add this function to handle answer changes
+  const handleAnswerChange = (pertanyaanId: number, value: string) => {
     setAnswers(prev => ({
       ...prev,
-      [questionId]: value
+      [pertanyaanId]: value
     }));
   };
 
@@ -237,46 +293,63 @@ export default function VerificationDetailPage() {
       setSubmitting(true);
       setError(null);
 
-      // Prepare answers data as array for database trigger
-      const surveyAnswers: Array<{
-        kategori_id: number;
-        kategori_nama: string;
-        pertanyaan_id: number;
-        pertanyaan_kode: string | null;
-        pertanyaan: string | null;
-        jawaban: string | number;
-        tipe_jawaban: string | null;
-        urutan: number | null;
-      }> = [];
+      // Convert answers to flattened p1-p41 format for verification_answers
+      const verificationAnswers: Record<string, string | number> = {};
       surveyData.forEach((kategoriData) => {
         kategoriData.pertanyaan.forEach((pertanyaan) => {
           const answer = answers[pertanyaan.id];
           if (answer !== undefined && answer !== '') {
-            surveyAnswers.push({
-              kategori_id: kategoriData.kategori.id,
-              kategori_nama: kategoriData.kategori.nama,
-              pertanyaan_id: pertanyaan.id,
-              pertanyaan_kode: pertanyaan.kode,
-              pertanyaan: pertanyaan.pertanyaan,
-              jawaban: pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer,
-              tipe_jawaban: pertanyaan.tipe_jawaban,
-              urutan: pertanyaan.urutan
-            });
+            // Map question to p1-p41 based on category and question order
+            let fieldName = '';
+            if (kategoriData.kategori.id === 1) {
+              // Kompetensi Generik Nasional: p1-p6
+              fieldName = `p${pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 2) {
+              // Struktur ASN Corpu: p7-p10
+              fieldName = `p${6 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 3) {
+              // Manajemen Pengetahuan: p11-p15
+              fieldName = `p${10 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 4) {
+              // Forum Pembelajaran: p16-p19
+              fieldName = `p${15 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 5) {
+              // Sistem Pembelajaran: p20-p23
+              fieldName = `p${19 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 6) {
+              // Strategi Pembelajaran: p24-p28
+              fieldName = `p${23 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 7) {
+              // Teknologi Pembelajaran: p29-p33
+              fieldName = `p${28 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 8) {
+              // Integrasi Sistem: p34-p37
+              fieldName = `p${33 + pertanyaan.urutan}`;
+            } else if (kategoriData.kategori.id === 9) {
+              // Evaluasi ASN Corpu: p38-p41
+              fieldName = `p${37 + pertanyaan.urutan}`;
+            }
+
+            if (fieldName) {
+              verificationAnswers[fieldName] = pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer;
+            }
           }
         });
       });
 
-      // Update existing survey with verification
-      const response = await fetch('/api/verification-survey', {
-        method: 'PUT',
+      // Submit verification to /api/jawaban
+      const response = await fetch('/api/jawaban', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: existingSurvey?.id,
-          status: 'verified',
+          instansiId: existingSurvey?.instansi_id,
+          tahun: existingSurvey?.tahun,
+          verification_answers: verificationAnswers,
+          is_verified: true,
           verified_by: 'admin', // TODO: Get from session/auth
-          verification_answers: surveyAnswers
+          isVerification: true
         })
       });
 
@@ -518,6 +591,43 @@ export default function VerificationDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Bukti Dukung Section */}
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-orange-900 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Bukti Dukung
+                  </h3>
+                  <p className="text-sm text-orange-700 mb-4">
+                    Bukti dukung atau penjelasan tambahan untuk kategori {surveyData.find(k => k.kategori.id === currentStep)?.kategori.nama}.
+                    Ini akan membantu memverifikasi implementasi yang telah dilakukan.
+                  </p>
+                  <div className="space-y-4">
+                    {buktiDukung[currentStep] && buktiDukung[currentStep].trim() !== '' ? (
+                      <div>
+                        <Button
+                          onClick={() => window.open(buktiDukung[currentStep], '_blank')}
+                          variant="outline"
+                          className="w-full bg-white hover:bg-gray-50 border-orange-300 text-orange-700 hover:text-orange-800"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Lihat File Bukti Dukung
+                        </Button>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Klik untuk membuka link bukti dukung di tab baru
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500">
+                          Tidak ada bukti dukung untuk kategori ini
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -13,20 +13,30 @@ interface JawabanItem {
   pertanyaan_kode: string;
 }
 
+interface ApiSurveyData {
+  surveiId: number;
+  userId: number;
+  tahun: number;
+  fullName: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: string | number | null;
+}
+
 interface SurveyData {
   id: number;
   instansi_id: number;
   nama_instansi: string;
   tahun: number;
-  jawaban: JawabanItem[];
-  verification_answers: JawabanItem[] | null;
-  is_verified: boolean;
-  verified_by: string | null;
-  verified_at: string | null;
   created_at: string;
   updated_at: string;
   self_assessment_score?: number;
   verification_score?: number | null;
+  is_verified: boolean;
+  verified_by: string | null;
+  verified_at: string | null;
+  jawaban: JawabanItem[]; // Keep for compatibility
+  verification_answers: JawabanItem[] | null;
 }
 
 export default function VerificationSurveyPage() {
@@ -35,46 +45,46 @@ export default function VerificationSurveyPage() {
   const slug = params?.slug;
   const [surveys, setSurveys] = useState<SurveyData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const fetchSurveys = async () => {
     try {
-      // Get all surveys from jawaban API
-      const response = await fetch('/api/jawaban');
+      // Get all surveys from answer API
+      const response = await fetch('/api/answer');
       const result = await response.json();
       if (result.success) {
-        // Calculate scores for each survey
-        const surveysWithScores = result.data.map((survey: Omit<SurveyData, 'self_assessment_score' | 'verification_score'>) => {
-          // Calculate self assessment score from jawaban (kategori_id 2-9)
+        // Calculate scores for each survey from flattened p1-p41 data
+        const surveysWithScores = result.data.map((survey: ApiSurveyData) => {
+          // Calculate self assessment score from p1-p41 (all questions)
           let selfAssessmentScore = 0;
-          if (survey.jawaban && Array.isArray(survey.jawaban)) {
-            selfAssessmentScore = survey.jawaban
-              .filter((item: JawabanItem) => item.kategori_id >= 2 && item.kategori_id <= 9)
-              .reduce((sum: number, item: JawabanItem) => {
-                const value = typeof item.jawaban === 'number' ? item.jawaban : 
-                             typeof item.jawaban === 'string' ? parseFloat(item.jawaban) || 0 : 0;
-                return sum + value;
-              }, 0);
-          }
-
-          // Calculate verification score from verification_answers if available
-          let verificationScore = null;
-          if (survey.verification_answers && Array.isArray(survey.verification_answers)) {
-            verificationScore = survey.verification_answers
-              .filter((item: JawabanItem) => item.kategori_id >= 2 && item.kategori_id <= 9)
-              .reduce((sum: number, item: JawabanItem) => {
-                const value = typeof item.jawaban === 'number' ? item.jawaban : 
-                             typeof item.jawaban === 'string' ? parseFloat(item.jawaban) || 0 : 0;
-                return sum + value;
-              }, 0);
+          // Sum all p1-p41 values (only numeric ones)
+          for (let i = 1; i <= 41; i++) {
+            const value = survey[`p${i}`];
+            if (typeof value === 'number' && !isNaN(value)) {
+              selfAssessmentScore += value;
+            }
           }
 
           return {
-            ...survey,
+            id: survey.surveiId,
+            instansi_id: survey.userId,
+            nama_instansi: survey.fullName,
+            tahun: survey.tahun,
+            created_at: survey.createdAt,
+            updated_at: survey.updatedAt,
             self_assessment_score: selfAssessmentScore,
-            verification_score: verificationScore
+            // These fields might not be available in the new API, set defaults
+            is_verified: false,
+            verified_by: null,
+            verified_at: null,
+            verification_score: null,
+            jawaban: [], // Keep empty for compatibility
+            verification_answers: null
           };
         });
         setSurveys(surveysWithScores);
+        setCurrentPage(1); // Reset to first page when new data is loaded
       }
     } catch (error) {
       console.error('Error fetching surveys:', error);
@@ -100,13 +110,35 @@ export default function VerificationSurveyPage() {
     if (score >= 1001 && score <= 2000) return 'Intermediate (Low)';
     if (score >= 2001 && score <= 3000) return 'Intermediate (High)';
     if (score >= 3001 && score <= 3500) return 'Mature';
-    if (score >= 3501 && score <= 4000) return 'Advanced';
+    if (score >= 3501) return 'Advanced';
     return 'Unknown';
   };
 
   const handleVerification = (survey: SurveyData) => {
     // Navigate to verification detail page
     router.push(`/${slug}/verifikasi-detail/${survey.id}`);
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(surveys.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentSurveys = surveys.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
   };
 
   if (loading) {
@@ -159,13 +191,13 @@ export default function VerificationSurveyPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {surveys.map((survey) => (
+                {currentSurveys.map((survey) => (
                   <tr key={survey.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {survey.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {survey.nama_instansi || `Instansi ${survey.instansi_id}`}
+                      {survey.nama_instansi}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(survey.created_at).toLocaleDateString('id-ID')}
@@ -217,7 +249,77 @@ export default function VerificationSurveyPage() {
           )}
         </div>
 
-        {/* Pagination - Removed as per new requirements */}
+        {/* Pagination Controls */}
+        {surveys.length > 0 && totalPages > 1 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4 rounded-xl shadow">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(endIndex, surveys.length)}</span> of{' '}
+                  <span className="font-medium">{surveys.length}</span> results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+
+                  {/* Page numbers */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        page === currentPage
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal components removed as verification now redirects to survey page */}
       </div>
     </main>

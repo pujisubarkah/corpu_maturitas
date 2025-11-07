@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
-import { strategiPembelajaran, surveiCorpu } from "../../../lib/schemas/profile_surveys";
+import { kompetensiGenerikNasional, surveiCorpu } from "../../../lib/schemas/profile_surveys";
 import { eq, and } from "drizzle-orm";
 
-export async function GET(request: NextRequest) {
+export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
   const tahun = searchParams.get('tahun');
@@ -19,35 +19,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: [] });
     }
 
-    // Then find the strategiPembelajaran record
-    const data = await db.select().from(strategiPembelajaran).where(
-      eq(strategiPembelajaran.surveiId, surveiRecord[0].id)
+    // Then find the kompetensiGenerikNasional record
+    const data = await db.select().from(kompetensiGenerikNasional).where(
+      eq(kompetensiGenerikNasional.surveiId, surveiRecord[0].id)
     );
     return NextResponse.json({ data });
   } else {
-    const data = await db.select().from(strategiPembelajaran);
+    const data = await db.select().from(kompetensiGenerikNasional);
     return NextResponse.json({ data });
   }
 }
 
-export async function PUT(req: NextRequest) {
+export async function PUT(req) {
   const body = await req.json();
   const { surveiId, ...updateData } = body;
 
-  if (!surveiId) {
-    return NextResponse.json({ error: 'surveiId is required' }, { status: 400 });
-  }
-
-  const updated = await db.update(strategiPembelajaran).set(updateData).where(eq(strategiPembelajaran.surveiId, surveiId)).returning();
-
-  if (updated.length === 0) {
-    return NextResponse.json({ error: 'Record not found' }, { status: 404 });
-  }
-
+  // For backward compatibility, if id is provided, treat it as surveiId
+  const idToUse = surveiId || body.id;
+  const updated = await db.update(kompetensiGenerikNasional).set(updateData).where(eq(kompetensiGenerikNasional.surveiId, idToUse)).returning();
   return NextResponse.json(updated[0]);
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req) {
   const body = await req.json();
   const { userId, tahun, ...data } = body;
 
@@ -57,7 +50,7 @@ export async function POST(req: NextRequest) {
     eq(surveiCorpu.tahun, tahun)
   ));
 
-  let surveiId: number;
+  let surveiId;
   if (surveiRecord.length > 0) {
     surveiId = surveiRecord[0].id;
   } else {
@@ -65,21 +58,21 @@ export async function POST(req: NextRequest) {
     surveiId = inserted[0].id;
   }
 
-  // Check if strategiPembelajaran record exists
-  const existing = await db.select().from(strategiPembelajaran).where(
-    eq(strategiPembelajaran.surveiId, surveiId)
+  // Check if kompetensiGenerikNasional record exists
+  const existing = await db.select().from(kompetensiGenerikNasional).where(
+    eq(kompetensiGenerikNasional.surveiId, surveiId)
   );
 
   if (existing.length > 0) {
     // Update existing record
-    const updated = await db.update(strategiPembelajaran)
+    const updated = await db.update(kompetensiGenerikNasional)
       .set(data)
-      .where(eq(strategiPembelajaran.surveiId, surveiId))
+      .where(eq(kompetensiGenerikNasional.surveiId, surveiId))
       .returning();
     return NextResponse.json(updated[0]);
   } else {
     // Insert new record
-    const inserted = await db.insert(strategiPembelajaran).values({ surveiId, ...data }).returning();
+    const inserted = await db.insert(kompetensiGenerikNasional).values({ surveiId, ...data }).returning();
     return NextResponse.json(inserted[0]);
   }
 }

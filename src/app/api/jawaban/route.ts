@@ -1,363 +1,141 @@
 import { NextResponse } from 'next/server'
 import { db } from '../../../lib/db'
 import { jawaban } from '../../../lib/schemas/jawaban'
-import { masterInstansiType } from '../../../lib/schemas/instansi'
 import { eq, and } from 'drizzle-orm'
 
-// Type definitions
-interface JawabanItem {
-  kategori_id: number;
-  kategori_nama: string;
-  pertanyaan_id: number;
-  pertanyaan_kode: string | null;
-  pertanyaan: string | null;
-  jawaban: string | number;
-  tipe_jawaban: string | null;
-  urutan: number | null;
-}
-
-interface JawabanInsert {
-  instansi_id: number;
+export async function simpanJawaban(data: {
+  instansiId: number;
   tahun: number;
-  jawaban: JawabanItem[];
-  bukti_dukung?: BuktiDukungItem[];
-}
-
-interface BuktiDukungItem {
-  kategori_id: number;
-  kategori_nama: string;
-  bukti_dukung: string;
-}
-
-interface JawabanUpdate {
-  instansi_id?: number;
-  tahun?: number;
-  jawaban?: JawabanItem[];
-  bukti_dukung?: BuktiDukungItem[];
-}
-
-// GET: Get jawaban by id, or by instansi_id and tahun, or get all
-export async function GET(request: Request) {
+  jawaban?: Record<string, string | number>;
+  bukti_dukung?: Record<string, string>;
+  verification_answers?: Record<string, string | number>;
+  is_verified?: boolean;
+  verified_by?: string;
+  isVerification?: boolean;
+}) {
   try {
-    const url = new URL(request.url)
-    const idParam = url.searchParams.get('id')
-    const instansiIdParam = url.searchParams.get('instansi_id')
-    const tahunParam = url.searchParams.get('tahun')
-
-    // Get by id
-    if (idParam) {
-      const id = Number(idParam)
-      if (Number.isNaN(id)) {
-        return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 })
-      }
-      const rows = await db
-        .select({
-          id: jawaban.id,
-          instansi_id: jawaban.instansi_id,
-          nama_instansi: masterInstansiType.nama_instansi,
-          tahun: jawaban.tahun,
-          jawaban: jawaban.jawaban,
-          bukti_dukung: jawaban.bukti_dukung,
-          verification_answers: jawaban.verification_answers,
-          is_verified: jawaban.is_verified,
-          verified_by: jawaban.verified_by,
-          verified_at: jawaban.verified_at,
-          created_at: jawaban.created_at,
-          updated_at: jawaban.updated_at
+    if (data.isVerification) {
+      // This is a verification update - update verification_answers and verification status
+      const result = await db.update(jawaban)
+        .set({
+          verification_answers: data.verification_answers,
+          is_verified: data.is_verified || false,
+          verified_by: data.verified_by || null,
+          verified_at: data.is_verified ? new Date() : null,
+          updated_at: new Date()
         })
-        .from(jawaban)
-        .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
-        .where(eq(jawaban.id, id))
-        .limit(1)
-      return NextResponse.json({
-        success: true,
-        data: rows.length ? rows[0] : null
-      })
-    }
+        .where(and(
+          eq(jawaban.instansi_id, data.instansiId),
+          eq(jawaban.tahun, data.tahun)
+        ))
+        .returning({ id: jawaban.id });
 
-    // Get by instansi_id and tahun
-    if (instansiIdParam && tahunParam) {
-      const instansiId = Number(instansiIdParam)
-      const tahun = Number(tahunParam)
-
-      if (Number.isNaN(instansiId) || Number.isNaN(tahun)) {
-        return NextResponse.json({ success: false, message: 'Invalid instansi_id or tahun' }, { status: 400 })
+      if (result.length === 0) {
+        return { success: false, error: 'Data jawaban tidak ditemukan untuk diverifikasi' };
       }
 
-      const rows = await db
-        .select({
-          id: jawaban.id,
-          instansi_id: jawaban.instansi_id,
-          nama_instansi: masterInstansiType.nama_instansi,
-          tahun: jawaban.tahun,
-          jawaban: jawaban.jawaban,
-          bukti_dukung: jawaban.bukti_dukung,
-          verification_answers: jawaban.verification_answers,
-          is_verified: jawaban.is_verified,
-          verified_by: jawaban.verified_by,
-          verified_at: jawaban.verified_at,
-          created_at: jawaban.created_at,
-          updated_at: jawaban.updated_at
-        })
-        .from(jawaban)
-        .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
-        .where(and(eq(jawaban.instansi_id, instansiId), eq(jawaban.tahun, tahun)))
-        .limit(1)
-
-      return NextResponse.json({
+      return {
         success: true,
-        data: rows.length ? rows[0] : null
-      })
+        jawabanId: result[0].id,
+        message: 'Verifikasi jawaban berhasil disimpan'
+      };
+    } else {
+      // This is initial user submission - insert or update jawaban
+      const result = await db.insert(jawaban)
+        .values({
+          instansi_id: data.instansiId,
+          tahun: data.tahun,
+          jawaban: data.jawaban,
+          bukti_dukung: data.bukti_dukung || null,
+          verification_answers: null, // Clear any previous verification answers
+          is_verified: false, // Reset verification status for new submission
+          verified_by: null,
+          verified_at: null,
+          updated_at: new Date()
+        })
+        .onConflictDoUpdate({
+          target: [jawaban.instansi_id, jawaban.tahun],
+          set: {
+            jawaban: data.jawaban,
+            bukti_dukung: data.bukti_dukung || null,
+            verification_answers: null, // Clear verification answers on new submission
+            is_verified: false, // Reset verification status
+            verified_by: null,
+            verified_at: null,
+            updated_at: new Date()
+          }
+        })
+        .returning({ id: jawaban.id });
+
+      return {
+        success: true,
+        jawabanId: result[0].id,
+        message: 'Jawaban berhasil disimpan'
+      };
     }
 
-    // Get all jawaban
-    const rows = await db
-      .select({
-        id: jawaban.id,
-        instansi_id: jawaban.instansi_id,
-        nama_instansi: masterInstansiType.nama_instansi,
-        tahun: jawaban.tahun,
-        jawaban: jawaban.jawaban,
-        bukti_dukung: jawaban.bukti_dukung,
-        verification_answers: jawaban.verification_answers,
-        is_verified: jawaban.is_verified,
-        verified_by: jawaban.verified_by,
-        verified_at: jawaban.verified_at,
-        created_at: jawaban.created_at,
-        updated_at: jawaban.updated_at
-      })
-      .from(jawaban)
-      .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
-      .orderBy(jawaban.created_at)
-    return NextResponse.json({
-      success: true,
-      data: rows
-    })
   } catch (error) {
-    console.error('GET jawaban error:', error)
-    return NextResponse.json({ success: false, message: 'Gagal mengambil data jawaban' }, { status: 500 })
+    console.error('Error saving jawaban:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
-// POST: Create new jawaban
+// POST endpoint untuk API
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as unknown
+    const data = await request.json();
 
-    if (typeof body !== 'object' || body === null) {
-      return NextResponse.json({ success: false, message: 'Invalid body' }, { status: 400 })
-    }
+    const result = await simpanJawaban(data);
 
-    const { instansi_id, tahun, jawaban: jawabanData, bukti_dukung: buktiDukungData } = body as Record<string, unknown>
-
-    // Validation
-    if (!instansi_id || typeof instansi_id !== 'number') {
-      return NextResponse.json({ success: false, message: 'instansi_id wajib diisi dan harus berupa angka' }, { status: 400 })
-    }
-
-    if (!tahun || typeof tahun !== 'number') {
-      return NextResponse.json({ success: false, message: 'tahun wajib diisi dan harus berupa angka' }, { status: 400 })
-    }
-
-    if (!jawabanData || !Array.isArray(jawabanData)) {
-      return NextResponse.json({ success: false, message: 'jawaban wajib diisi dan harus berupa array' }, { status: 400 })
-    }
-
-    // Check if jawaban already exists for this instansi_id and tahun
-    const existing = await db
-      .select()
-      .from(jawaban)
-      .where(and(eq(jawaban.instansi_id, instansi_id as number), eq(jawaban.tahun, tahun as number)))
-      .limit(1)
-
-    if (existing.length > 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'Jawaban untuk instansi dan tahun ini sudah ada. Gunakan PUT untuk update.'
-      }, { status: 409 })
-    }
-
-    const values: JawabanInsert = {
-      instansi_id: instansi_id as number,
-      tahun: tahun as number,
-      jawaban: jawabanData as JawabanItem[],
-      bukti_dukung: buktiDukungData as BuktiDukungItem[] | undefined,
-    }
-
-    const [inserted] = await db.insert(jawaban).values(values).returning()
-    
-    // Get inserted record with nama_instansi
-    const [result] = await db
-      .select({
-        id: jawaban.id,
-        instansi_id: jawaban.instansi_id,
-        nama_instansi: masterInstansiType.nama_instansi,
-        tahun: jawaban.tahun,
-        jawaban: jawaban.jawaban,
-        bukti_dukung: jawaban.bukti_dukung,
-        verification_answers: jawaban.verification_answers,
-        is_verified: jawaban.is_verified,
-        verified_by: jawaban.verified_by,
-        verified_at: jawaban.verified_at,
-        created_at: jawaban.created_at,
-        updated_at: jawaban.updated_at
-      })
-      .from(jawaban)
-      .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
-      .where(eq(jawaban.id, inserted.id))
-      .limit(1)
-    
-    return NextResponse.json({
-      success: true,
-      data: result,
-      message: 'Jawaban berhasil disimpan'
-    })
-  } catch (error) {
-    console.error('POST jawaban error:', error)
-    return NextResponse.json({ success: false, message: 'Gagal menyimpan jawaban' }, { status: 500 })
-  }
-}
-
-// PUT: Update existing jawaban by id
-export async function PUT(request: Request) {
-  try {
-    const body = (await request.json()) as unknown
-
-    if (typeof body !== 'object' || body === null) {
-      return NextResponse.json({ success: false, message: 'Invalid body' }, { status: 400 })
-    }
-
-    const { id, instansi_id, tahun, jawaban: jawabanData, bukti_dukung: buktiDukungData } = body as Record<string, unknown>
-
-    if (!id || typeof id !== 'number') {
-      return NextResponse.json({ success: false, message: 'id wajib diisi dan harus berupa angka' }, { status: 400 })
-    }
-
-    // Check if jawaban exists
-    const existing = await db
-      .select()
-      .from(jawaban)
-      .where(eq(jawaban.id, id as number))
-      .limit(1)
-
-    if (existing.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'Jawaban tidak ditemukan'
-      }, { status: 404 })
-    }
-
-    const updateData: JawabanUpdate = {}
-
-    if (instansi_id !== undefined) {
-      if (typeof instansi_id !== 'number') {
-        return NextResponse.json({ success: false, message: 'instansi_id harus berupa angka' }, { status: 400 })
-      }
-      updateData.instansi_id = instansi_id as number
-    }
-
-    if (tahun !== undefined) {
-      if (typeof tahun !== 'number') {
-        return NextResponse.json({ success: false, message: 'tahun harus berupa angka' }, { status: 400 })
-      }
-      updateData.tahun = tahun as number
-    }
-
-    if (jawabanData !== undefined) {
-      if (!Array.isArray(jawabanData)) {
-        return NextResponse.json({ success: false, message: 'jawaban harus berupa array' }, { status: 400 })
-      }
-      updateData.jawaban = jawabanData as JawabanItem[]
-    }
-
-    if (buktiDukungData !== undefined) {
-      if (!Array.isArray(buktiDukungData)) {
-        return NextResponse.json({ success: false, message: 'bukti_dukung harus berupa array' }, { status: 400 })
-      }
-      updateData.bukti_dukung = buktiDukungData as BuktiDukungItem[]
-    }
-
-    await db.update(jawaban).set(updateData).where(eq(jawaban.id, id as number))
-
-    // Get updated record
-    const [updated] = await db
-      .select({
-        id: jawaban.id,
-        instansi_id: jawaban.instansi_id,
-        nama_instansi: masterInstansiType.nama_instansi,
-        tahun: jawaban.tahun,
-        jawaban: jawaban.jawaban,
-        verification_answers: jawaban.verification_answers,
-        is_verified: jawaban.is_verified,
-        verified_by: jawaban.verified_by,
-        verified_at: jawaban.verified_at,
-        created_at: jawaban.created_at,
-        updated_at: jawaban.updated_at
-      })
-      .from(jawaban)
-      .leftJoin(masterInstansiType, eq(jawaban.instansi_id, masterInstansiType.instansi_id))
-      .where(eq(jawaban.id, id as number))
-      .limit(1)
-
-    return NextResponse.json({
-      success: true,
-      data: updated,
-      message: 'Jawaban berhasil diperbarui'
-    })
-  } catch (error) {
-    console.error('PUT jawaban error:', error)
-    return NextResponse.json({ success: false, message: 'Gagal memperbarui jawaban' }, { status: 500 })
-  }
-}
-
-// DELETE: Delete jawaban by id
-export async function DELETE(request: Request) {
-  try {
-    const url = new URL(request.url)
-    const idParam = url.searchParams.get('id')
-
-    let id: number | undefined
-
-    if (idParam) {
-      id = Number(idParam)
+    if (result.success) {
+      return NextResponse.json(result);
     } else {
-      const body = (await request.json()) as unknown
-      if (typeof body === 'object' && body !== null) {
-        const { id: bodyId } = body as Record<string, unknown>
-        if (typeof bodyId === 'number') {
-          id = bodyId
-        } else if (bodyId) {
-          id = Number(bodyId)
-        }
-      }
+      return NextResponse.json(result, { status: 500 });
     }
+  } catch (error) {
+    console.error('POST jawaban error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
 
-    if (!id || Number.isNaN(id)) {
-      return NextResponse.json({ success: false, message: 'id wajib diisi dan harus berupa angka' }, { status: 400 })
-    }
+// GET endpoint untuk mendapatkan data jawaban
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const instansiId = url.searchParams.get('instansiId');
+    const tahun = url.searchParams.get('tahun');
 
-    // Check if jawaban exists
-    const existing = await db
-      .select()
-      .from(jawaban)
-      .where(eq(jawaban.id, id))
-      .limit(1)
-
-    if (existing.length === 0) {
+    if (!instansiId || !tahun) {
       return NextResponse.json({
         success: false,
-        message: 'Jawaban tidak ditemukan'
-      }, { status: 404 })
+        error: 'instansiId dan tahun diperlukan'
+      }, { status: 400 });
     }
 
-    await db.delete(jawaban).where(eq(jawaban.id, id))
+    // Cari jawaban berdasarkan instansi_id dan tahun
+    const jawabanRecord = await db.select()
+      .from(jawaban)
+      .where(and(
+        eq(jawaban.instansi_id, parseInt(instansiId)),
+        eq(jawaban.tahun, parseInt(tahun))
+      ));
 
-    return NextResponse.json({
-      success: true,
-      message: 'Jawaban berhasil dihapus'
-    })
+    if (jawabanRecord.length === 0) {
+      return NextResponse.json({ success: true, data: null });
+    }
+
+    const result = jawabanRecord[0];
+
+    return NextResponse.json({ success: true, data: result });
+
   } catch (error) {
-    console.error('DELETE jawaban error:', error)
-    return NextResponse.json({ success: false, message: 'Gagal menghapus jawaban' }, { status: 500 })
+    console.error('GET jawaban error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
