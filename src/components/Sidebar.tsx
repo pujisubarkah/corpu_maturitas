@@ -9,6 +9,7 @@ import {
   FileText,
   LogOut,
   LayoutDashboard,
+  BarChart3,
 } from "lucide-react";
 
 type User = {
@@ -48,6 +49,14 @@ const adminMenu = [
     icon: FileText,
     children: [
       { title: "Verifikasi Survei", href: "/[slug]/verifikasi-survei" },
+    ],
+  },
+  {
+    title: "Laporan",
+    icon: BarChart3,
+    children: [
+      { title: "Nilai Self Assesment", href: "/[slug]/chart-self-assessment" },
+      { title: "Berdasarkan Item", href: "/[slug]/chart-by-category" },
     ],
   },
 ];

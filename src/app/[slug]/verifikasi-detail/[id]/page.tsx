@@ -72,6 +72,7 @@ interface SurveyData {
   nama_instansi: string;
   tahun: number;
   jawaban: ExistingAnswer[];
+  originalJawaban?: Record<string, string | number>; // Flattened p1-p41 data
   is_verified: boolean;
   verified_by: string | null;
   verified_at: string | null;
@@ -81,6 +82,11 @@ interface SurveyData {
 
 interface AnswerData {
   [key: string]: string | number | null;
+}
+
+interface MasterInstansiType {
+  id: number;
+  nama_instansi: string;
 }
 
 export default function VerificationDetailPage() {
@@ -115,21 +121,44 @@ export default function VerificationDetailPage() {
           const data = await response.json();
 
           if (data.success && data.data) {
-            setExistingSurvey({
-              id: data.data.surveiId,
-              instansi_id: data.data.userId,
-              nama_instansi: data.data.fullName || 'Unknown',
-              tahun: data.data.tahun,
-              jawaban: [], // Will be populated from flattened p1-p41 data
-              is_verified: false, // TODO: Add verification status
-              verified_by: null,
-              verified_at: null,
-              created_at: data.data.createdAt,
-              updated_at: data.data.updatedAt
-            });
+            console.log('API answer data:', data.data);
+            // Use instansiId directly from the answer data
+            const instansiIdFromData = data.data.instansiId;
 
-            // Convert flattened p1-p41 data to answers format
+            console.log('Debug - userId:', data.data.userId);
+            console.log('Debug - instansiId from data:', instansiIdFromData);
+
+            if (!instansiIdFromData) {
+              setError(`User tidak memiliki instansi yang valid untuk diverifikasi. User ID: ${data.data.userId}, survei ID: ${surveyId}. Silakan hubungi administrator untuk mengatur instansi user.`);
+              return;
+            }
+
+            // Since users.instansiId should already be the masterInstansiType.id, use it directly
+            // But verify it exists in masterInstansiType
+            let mappedInstansiId: number | null = null;
+            let namaInstansi: string = data.data.fullName || 'Unknown';
+            try {
+              const masterResp = await fetch('/api/master-instansi-type');
+              const masterData = await masterResp.json();
+              if (masterData.success && Array.isArray(masterData.data)) {
+                const match = masterData.data.find((m: MasterInstansiType) => m.id === instansiIdFromData);
+                if (match) {
+                  mappedInstansiId = match.id;
+                  namaInstansi = match.nama_instansi || data.data.fullName || 'Unknown';
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to fetch master instansi types:', err);
+            }
+
+            if (!mappedInstansiId) {
+              setError('Instansi tidak ditemukan di master instansi; tidak dapat memverifikasi.');
+              return;
+            }
+
+            // Convert flattened p1-p41 data to answers format and store original data
             const existingAnswers: Record<number, string> = {};
+            const originalJawaban: Record<string, string | number> = {};
 
             // Map p1-p41 back to question IDs based on survey structure
             let questionIndex = 1;
@@ -139,9 +168,24 @@ export default function VerificationDetailPage() {
                 const answer = (data.data as AnswerData)[fieldName];
                 if (answer !== undefined && answer !== null) {
                   existingAnswers[pertanyaan.id] = answer.toString();
+                  originalJawaban[fieldName] = pertanyaan.tipe_jawaban === 'angka' ? Number(answer) : answer;
                 }
                 questionIndex++;
               });
+            });
+
+            setExistingSurvey({
+              id: data.data.surveiId,
+              instansi_id: mappedInstansiId, // Use the verified master instansi primary id
+              nama_instansi: namaInstansi,
+              tahun: data.data.tahun,
+              jawaban: [], // Will be populated from flattened p1-p41 data
+              originalJawaban: originalJawaban, // Store flattened p1-p41 data
+              is_verified: false, // TODO: Add verification status
+              verified_by: null,
+              verified_at: null,
+              created_at: data.data.createdAt,
+              updated_at: data.data.updatedAt
             });
 
             // Load bukti_dukung data
@@ -346,7 +390,9 @@ export default function VerificationDetailPage() {
         body: JSON.stringify({
           instansiId: existingSurvey?.instansi_id,
           tahun: existingSurvey?.tahun,
-          verification_answers: verificationAnswers,
+          jawaban: existingSurvey?.originalJawaban, // Original survey data
+          bukti_dukung: buktiDukung, // Supporting evidence data
+          verification_answers: verificationAnswers, // Edited answers
           is_verified: true,
           verified_by: 'admin', // TODO: Get from session/auth
           isVerification: true

@@ -1,8 +1,9 @@
 import { pgTable, serial, integer, jsonb, timestamp, varchar, boolean } from 'drizzle-orm/pg-core'
+import { masterInstansiType } from './instansi'
 
 export const jawaban = pgTable('jawaban', {
   id: serial('id').primaryKey(),
-  instansi_id: integer('instansi_id'),
+  instansi_id: integer('instansi_id').references(() => masterInstansiType.id),
   tahun: integer('tahun'),
   jawaban: jsonb('jawaban'),
   bukti_dukung: jsonb('bukti_dukung'),

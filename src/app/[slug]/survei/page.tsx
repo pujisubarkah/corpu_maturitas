@@ -321,7 +321,7 @@ export default function SurveiPage() {
     return opsiData ? opsiData.opsi_jawaban.sort((a, b) => a.urutan - b.urutan) : [];
   };
 
-  const submitSurveyToJawaban = async (userId: number, tahun: number, isVerification: boolean = false) => {
+    const submitSurveyToJawaban = async (userId: number, instansiId: number, tahun: number, isVerification: boolean) => {
     // Collect all answers into flattened p1-p41 format
     const allAnswers: Record<string, string | number> = {};
     const buktiDukungData: Record<string, string> = {};
@@ -399,7 +399,7 @@ export default function SurveiPage() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        instansiId: userId,
+        instansiId: instansiId,
         tahun: tahun,
         jawaban: allAnswers,
         buktiDukung: buktiDukungData,
@@ -440,8 +440,9 @@ export default function SurveiPage() {
         return;
       }
 
-      // Get userId from localStorage
+      // Get userId and instansiId from localStorage
       let userId: number;
+      let instansiId: number;
       try {
         const user = JSON.parse(currentUser);
         if (user.id && typeof user.id === 'number') {
@@ -451,6 +452,12 @@ export default function SurveiPage() {
           window.location.href = '/login';
           return;
         }
+        if (user.instansiId && typeof user.instansiId === 'number') {
+          instansiId = user.instansiId;
+        } else {
+          alert('Instansi user tidak valid. Silakan hubungi administrator.');
+          return;
+        }
       } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
         alert('Terjadi kesalahan pada data login. Silakan login kembali.');
         window.location.href = '/login';
@@ -458,7 +465,7 @@ export default function SurveiPage() {
       }
 
       // Submit all survey data to /api/jawaban
-      await submitSurveyToJawaban(userId, selectedYear, false);
+      await submitSurveyToJawaban(userId, instansiId, selectedYear, false);
 
       alert('Terima kasih! Jawaban survei Anda telah berhasil disimpan.');
       // Reload existing answers to reflect changes
