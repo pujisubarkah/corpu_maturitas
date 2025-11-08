@@ -6,7 +6,7 @@ import { TrendingUp, Users, Building, Award } from 'lucide-react';
 const stats = [
   {
     icon: Users,
-    value: "500+",
+    value: "200+",
     label: "Organisasi Telah Berpartisipasi",
     color: "text-blue-600",
     bgColor: "bg-blue-50"

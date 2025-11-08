@@ -19,14 +19,14 @@ const services = [
     title: "Profile Responden",
     description: "Lengkapi data personal untuk analisis survey yang lebih akurat",
     color: "bg-emerald-500",
-    link: "/profile"
+   
   },
   {
     icon: ClipboardList,
     title: "Survey Maturitas",
     description: "Isi survey untuk menilai tingkat kematangan corporate university",
     color: "bg-blue-500",
-    link: "/input-survey"
+   
   },
   {
     icon: BarChart3,
@@ -90,8 +90,7 @@ export default function ServicesSection() {
           {services.map((service, index) => (
             <Card 
               key={index} 
-              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-0 bg-white"
-              onClick={() => service.link && (window.location.href = service.link)}
+              className="group hover:shadow-lg transition-all duration-300 border-0 bg-white"
             >
               <CardContent className="p-6 text-center">
                 <div className={`${service.color} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300`}>
