@@ -79,7 +79,7 @@ export default function NewsSection() {
               <CarouselItem key={item.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
                 <Card className="h-full group hover:shadow-xl transition-all duration-300 border-0 overflow-hidden">
                   <div className="relative overflow-hidden">
-                    <div className="w-full h-48 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                    <div className="w-full h-48 bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                       <span className="text-white text-sm font-medium px-3 py-1 bg-black/20 rounded-full">
                         {item.category}
                       </span>

@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { db } from '../../../lib/db'
+import { NextResponse } from 'next/server';
+import { db } from '../../../lib/db';
 import {
   surveiCorpu,
   strukturAsnCorpu,
@@ -9,234 +9,236 @@ import {
   strategiPembelajaran,
   teknologiPembelajaran,
   integrasiSistem,
-  evaluasiAsnCorpu
-} from '../../../lib/schemas/profile_surveys'
-import { users } from '../../../lib/schemas/user'
-import { masterInstansiType } from '../../../lib/schemas/instansi'
-import { eq, and } from 'drizzle-orm'
+  evaluasiAsnCorpu,
+} from '../../../lib/schemas/profile_surveys';
+import { users } from '../../../lib/schemas/user';
+import { masterInstansiType } from '../../../lib/schemas/instansi';
+import { eq, and, count, sql } from 'drizzle-orm';
 
 export async function GET(request: Request) {
   try {
-    const url = new URL(request.url)
-    const userId = url.searchParams.get('userId')
-    const tahun = url.searchParams.get('tahun')
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = parseInt(url.searchParams.get('limit') || '10')
+    const url = new URL(request.url);
+    const userIdParam = url.searchParams.get('userId');
+    const tahunParam = url.searchParams.get('tahun');
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
 
-    // Define categories with their question ranges and max scores
-    const categories = [
-      {
-        key: 'strukturAsn',
-        name: 'Struktur ASN Corpu',
-        table: strukturAsnCorpu,
-        questions: ['p7', 'p8', 'p9', 'p10'],
-        maxScore: 20
-      },
-      {
-        key: 'manajemenPengetahuan',
-        name: 'Manajemen Pengetahuan',
-        table: manajemenPengetahuan,
-        questions: ['p11', 'p12', 'p13', 'p14', 'p15'],
-        maxScore: 25
-      },
-      {
-        key: 'forumPembelajaran',
-        name: 'Forum Pembelajaran',
-        table: forumPembelajaran,
-        questions: ['p16', 'p17', 'p18', 'p19'],
-        maxScore: 20
-      },
-      {
-        key: 'sistemPembelajaran',
-        name: 'Sistem Pembelajaran',
-        table: sistemPembelajaran,
-        questions: ['p20', 'p21', 'p22', 'p23'],
-        maxScore: 20
-      },
-      {
-        key: 'strategiPembelajaran',
-        name: 'Strategi Pembelajaran',
-        table: strategiPembelajaran,
-        questions: ['p24', 'p25', 'p26', 'p27', 'p28'],
-        maxScore: 25
-      },
-      {
-        key: 'teknologiPembelajaran',
-        name: 'Teknologi Pembelajaran',
-        table: teknologiPembelajaran,
-        questions: ['p29', 'p30', 'p31', 'p32', 'p33'],
-        maxScore: 25
-      },
-      {
-        key: 'integrasiSistem',
-        name: 'Integrasi Sistem',
-        table: integrasiSistem,
-        questions: ['p34', 'p35', 'p36', 'p37'],
-        maxScore: 20
-      },
-      {
-        key: 'evaluasiAsn',
-        name: 'Evaluasi ASN Corpu',
-        table: evaluasiAsnCorpu,
-        questions: ['p38', 'p39', 'p40', 'p41'],
-        maxScore: 20
-      }
-    ]
+    // ✅ Filter: hanya survei yang punya data di semua tabel kategori (opsional)
+    // atau biarkan LEFT JOIN agar tetap muncul meski ada yang kosong
 
-    // If specific userId and tahun provided, get summary for that user
-    if (userId && tahun) {
-      const userIdNum = parseInt(userId)
-      const tahunNum = parseInt(tahun)
+    // 🔹 Filter berdasarkan tahun (jika ada)
+    let whereClause = undefined;
+    if (tahunParam) {
+      const tahunNum = parseInt(tahunParam);
+      whereClause = eq(surveiCorpu.tahun, tahunNum);
+    }
 
-      // Find the survey for this user and year
-      const surveyRecord = await db.select()
-        .from(surveiCorpu)
-        .where(and(
-          eq(surveiCorpu.userId, userIdNum),
-          eq(surveiCorpu.tahun, tahunNum)
-        ))
+    // 🔹 Jika userId + tahun spesifik → ambil 1 survei (tetap pakai JOIN)
+    if (userIdParam && tahunParam) {
+      const userIdNum = parseInt(userIdParam);
+      const tahunNum = parseInt(tahunParam);
 
-      if (surveyRecord.length === 0) {
-        return NextResponse.json({
-          success: false,
-          error: 'Data survei tidak ditemukan untuk user dan tahun tersebut'
-        }, { status: 404 })
-      }
-
-      const surveiId = surveyRecord[0].id
-
-      // Get user info
-      const [userInfo] = await db.select({
-        fullName: users.fullName,
-        nama_instansi: masterInstansiType.nama_instansi
-      })
-        .from(users)
-        .leftJoin(masterInstansiType, eq(users.instansiId, masterInstansiType.id))
-        .where(eq(users.id, userIdNum))
-        .limit(1)
-
-      // Calculate scores for each category
-      const categorySummaries = await Promise.all(
-        categories.map(async (category) => {
-          const categoryData = await db.select()
-            .from(category.table)
-            .where(eq(category.table.surveiId, surveiId))
-
-          if (categoryData.length === 0) {
-            return {
-              category: category.name,
-              score: 0
-            }
-          }
-
-          const record = categoryData[0]
-          let totalScore = 0
-
-          // For all categories, sum the numeric values (no range restriction)
-          category.questions.forEach(question => {
-            const value = (record as Record<string, unknown>)[question]
-            if (typeof value === 'number' && !isNaN(value)) {
-              totalScore += value
-            }
-          })
-
-          return {
-            category: category.name,
-            score: totalScore
-          }
+      const result = await db
+        .select({
+          surveiId: surveiCorpu.id,
+          userId: surveiCorpu.userId,
+          tahun: surveiCorpu.tahun,
+          fullName: sql<string>`COALESCE(${masterInstansiType.nama_instansi}, ${users.fullName})`,
+          // --- Skor per kategori ---
+          strukturScore: sql<number>`COALESCE(
+            ${strukturAsnCorpu.p7} + ${strukturAsnCorpu.p8} + ${strukturAsnCorpu.p9} + ${strukturAsnCorpu.p10},
+            0
+          )`,
+          manajemenScore: sql<number>`COALESCE(
+            ${manajemenPengetahuan.p11} + ${manajemenPengetahuan.p12} + 
+            ${manajemenPengetahuan.p13} + ${manajemenPengetahuan.p14} + ${manajemenPengetahuan.p15},
+            0
+          )`,
+          forumScore: sql<number>`COALESCE(
+            ${forumPembelajaran.p16} + ${forumPembelajaran.p17} + ${forumPembelajaran.p18} + ${forumPembelajaran.p19},
+            0
+          )`,
+          sistemScore: sql<number>`COALESCE(
+            ${sistemPembelajaran.p20} + ${sistemPembelajaran.p21} + 
+            ${sistemPembelajaran.p22} + ${sistemPembelajaran.p23},
+            0
+          )`,
+          strategiScore: sql<number>`COALESCE(
+            ${strategiPembelajaran.p24} + ${strategiPembelajaran.p25} + 
+            ${strategiPembelajaran.p26} + ${strategiPembelajaran.p27} + ${strategiPembelajaran.p28},
+            0
+          )`,
+          teknologiScore: sql<number>`COALESCE(
+            ${teknologiPembelajaran.p29} + ${teknologiPembelajaran.p30} + 
+            ${teknologiPembelajaran.p31} + ${teknologiPembelajaran.p32} + ${teknologiPembelajaran.p33},
+            0
+          )`,
+          integrasiScore: sql<number>`COALESCE(
+            ${integrasiSistem.p34} + ${integrasiSistem.p35} + ${integrasiSistem.p36} + ${integrasiSistem.p37},
+            0
+          )`,
+          evaluasiScore: sql<number>`COALESCE(
+            ${evaluasiAsnCorpu.p38} + ${evaluasiAsnCorpu.p39} + ${evaluasiAsnCorpu.p40} + ${evaluasiAsnCorpu.p41},
+            0
+          )`,
         })
-      )
+        .from(surveiCorpu)
+        .leftJoin(users, eq(surveiCorpu.userId, users.id))
+        .leftJoin(masterInstansiType, eq(users.instansiId, masterInstansiType.id))
+        .leftJoin(strukturAsnCorpu, eq(surveiCorpu.id, strukturAsnCorpu.surveiId))
+        .leftJoin(manajemenPengetahuan, eq(surveiCorpu.id, manajemenPengetahuan.surveiId))
+        .leftJoin(forumPembelajaran, eq(surveiCorpu.id, forumPembelajaran.surveiId))
+        .leftJoin(sistemPembelajaran, eq(surveiCorpu.id, sistemPembelajaran.surveiId))
+        .leftJoin(strategiPembelajaran, eq(surveiCorpu.id, strategiPembelajaran.surveiId))
+        .leftJoin(teknologiPembelajaran, eq(surveiCorpu.id, teknologiPembelajaran.surveiId))
+        .leftJoin(integrasiSistem, eq(surveiCorpu.id, integrasiSistem.surveiId))
+        .leftJoin(evaluasiAsnCorpu, eq(surveiCorpu.id, evaluasiAsnCorpu.surveiId))
+        .where(
+          and(
+            eq(surveiCorpu.userId, userIdNum),
+            eq(surveiCorpu.tahun, tahunNum)
+          )
+        )
+        .limit(1);
 
-      const totalScore = categorySummaries.reduce((sum, cat) => sum + cat.score, 0)
+      if (result.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Data survei tidak ditemukan' },
+          { status: 404 }
+        );
+      }
+
+      const row = result[0];
+      const categories = [
+        { category: 'Struktur ASN Corpu', score: row.strukturScore },
+        { category: 'Manajemen Pengetahuan', score: row.manajemenScore },
+        { category: 'Forum Pembelajaran', score: row.forumScore },
+        { category: 'Sistem Pembelajaran', score: row.sistemScore },
+        { category: 'Strategi Pembelajaran', score: row.strategiScore },
+        { category: 'Teknologi Pembelajaran', score: row.teknologiScore },
+        { category: 'Integrasi Sistem', score: row.integrasiScore },
+        { category: 'Evaluasi ASN Corpu', score: row.evaluasiScore },
+      ];
+
+      const totalScore = categories.reduce((sum, c) => sum + c.score, 0);
 
       return NextResponse.json({
         success: true,
         data: {
-          userId: userIdNum,
-          tahun: tahunNum,
-          fullName: userInfo?.nama_instansi || userInfo?.fullName || `User ${userIdNum}`,
-          categories: categorySummaries,
-          summary: {
-            totalScore,
-            categoryCount: categories.length
-          }
-        }
-      })
+          userId: row.userId,
+          tahun: row.tahun,
+          fullName: row.fullName,
+          categories,
+          summary: { totalScore, categoryCount: categories.length },
+        },
+      });
     }
 
-    // If no specific user/tahun, return summary for all users with pagination
-    const offset = (page - 1) * limit
+    // 🔹 Kasus: semua survei (dengan pagination & filter tahun)
+    const offset = (page - 1) * limit;
 
-    // Get total count for pagination
-    const totalCountResult = await db.$count(surveiCorpu)
-    const totalCount = totalCountResult
+    // Hitung total (dengan filter tahun)
+    const countResult = await db
+      .select({ total: count() })
+      .from(surveiCorpu)
+      .where(whereClause);
+    const totalCount = Number(countResult[0].total);
 
-    // Get paginated surveys
-    const allSurveys = await db.select({
-      surveiId: surveiCorpu.id,
-      userId: surveiCorpu.userId,
-      tahun: surveiCorpu.tahun,
-      nama_instansi: masterInstansiType.nama_instansi,
-      userFullName: users.fullName
-    })
+    // Query utama: 1x JOIN semua tabel
+    const surveys = await db
+      .select({
+        surveiId: surveiCorpu.id,
+        userId: surveiCorpu.userId,
+        tahun: surveiCorpu.tahun,
+        fullName: sql<string>`COALESCE(${masterInstansiType.nama_instansi}, ${users.fullName})`,
+        // --- Skor per kategori ---
+        strukturScore: sql<number>`COALESCE(
+          ${strukturAsnCorpu.p7} + ${strukturAsnCorpu.p8} + ${strukturAsnCorpu.p9} + ${strukturAsnCorpu.p10},
+          0
+        )`,
+        manajemenScore: sql<number>`COALESCE(
+          ${manajemenPengetahuan.p11} + ${manajemenPengetahuan.p12} + 
+          ${manajemenPengetahuan.p13} + ${manajemenPengetahuan.p14} + ${manajemenPengetahuan.p15},
+          0
+        )`,
+        forumScore: sql<number>`COALESCE(
+          ${forumPembelajaran.p16} + ${forumPembelajaran.p17} + ${forumPembelajaran.p18} + ${forumPembelajaran.p19},
+          0
+        )`,
+        sistemScore: sql<number>`COALESCE(
+          ${sistemPembelajaran.p20} + ${sistemPembelajaran.p21} + 
+          ${sistemPembelajaran.p22} + ${sistemPembelajaran.p23},
+          0
+        )`,
+        strategiScore: sql<number>`COALESCE(
+          ${strategiPembelajaran.p24} + ${strategiPembelajaran.p25} + 
+          ${strategiPembelajaran.p26} + ${strategiPembelajaran.p27} + ${strategiPembelajaran.p28},
+          0
+        )`,
+        teknologiScore: sql<number>`COALESCE(
+          ${teknologiPembelajaran.p29} + ${teknologiPembelajaran.p30} + 
+          ${teknologiPembelajaran.p31} + ${teknologiPembelajaran.p32} + ${teknologiPembelajaran.p33},
+          0
+        )`,
+        integrasiScore: sql<number>`COALESCE(
+          ${integrasiSistem.p34} + ${integrasiSistem.p35} + ${integrasiSistem.p36} + ${integrasiSistem.p37},
+          0
+        )`,
+        evaluasiScore: sql<number>`COALESCE(
+          ${evaluasiAsnCorpu.p38} + ${evaluasiAsnCorpu.p39} + ${evaluasiAsnCorpu.p40} + ${evaluasiAsnCorpu.p41},
+          0
+        )`,
+        // Skor agregat
+        totalScore: sql<number>`COALESCE(
+          (${strukturAsnCorpu.p7} + ${strukturAsnCorpu.p8} + ${strukturAsnCorpu.p9} + ${strukturAsnCorpu.p10}) +
+          (${manajemenPengetahuan.p11} + ${manajemenPengetahuan.p12} + ${manajemenPengetahuan.p13} + ${manajemenPengetahuan.p14} + ${manajemenPengetahuan.p15}) +
+          (${forumPembelajaran.p16} + ${forumPembelajaran.p17} + ${forumPembelajaran.p18} + ${forumPembelajaran.p19}) +
+          (${sistemPembelajaran.p20} + ${sistemPembelajaran.p21} + ${sistemPembelajaran.p22} + ${sistemPembelajaran.p23}) +
+          (${strategiPembelajaran.p24} + ${strategiPembelajaran.p25} + ${strategiPembelajaran.p26} + ${strategiPembelajaran.p27} + ${strategiPembelajaran.p28}) +
+          (${teknologiPembelajaran.p29} + ${teknologiPembelajaran.p30} + ${teknologiPembelajaran.p31} + ${teknologiPembelajaran.p32} + ${teknologiPembelajaran.p33}) +
+          (${integrasiSistem.p34} + ${integrasiSistem.p35} + ${integrasiSistem.p36} + ${integrasiSistem.p37}) +
+          (${evaluasiAsnCorpu.p38} + ${evaluasiAsnCorpu.p39} + ${evaluasiAsnCorpu.p40} + ${evaluasiAsnCorpu.p41}),
+          0
+        )`,
+      })
       .from(surveiCorpu)
       .leftJoin(users, eq(surveiCorpu.userId, users.id))
       .leftJoin(masterInstansiType, eq(users.instansiId, masterInstansiType.id))
+      .leftJoin(strukturAsnCorpu, eq(surveiCorpu.id, strukturAsnCorpu.surveiId))
+      .leftJoin(manajemenPengetahuan, eq(surveiCorpu.id, manajemenPengetahuan.surveiId))
+      .leftJoin(forumPembelajaran, eq(surveiCorpu.id, forumPembelajaran.surveiId))
+      .leftJoin(sistemPembelajaran, eq(surveiCorpu.id, sistemPembelajaran.surveiId))
+      .leftJoin(strategiPembelajaran, eq(surveiCorpu.id, strategiPembelajaran.surveiId))
+      .leftJoin(teknologiPembelajaran, eq(surveiCorpu.id, teknologiPembelajaran.surveiId))
+      .leftJoin(integrasiSistem, eq(surveiCorpu.id, integrasiSistem.surveiId))
+      .leftJoin(evaluasiAsnCorpu, eq(surveiCorpu.id, evaluasiAsnCorpu.surveiId))
+      .where(whereClause)
       .orderBy(surveiCorpu.updatedAt)
       .limit(limit)
-      .offset(offset)
+      .offset(offset);
 
-    // Calculate summary for each survey
-    const allSummaries = await Promise.all(
-      allSurveys.map(async (survey) => {
-        const surveiId = survey.surveiId
+    // Format respons
+    const allSummaries = surveys.map((row) => {
+      const categories = [
+        { category: 'Struktur ASN Corpu', score: row.strukturScore },
+        { category: 'Manajemen Pengetahuan', score: row.manajemenScore },
+        { category: 'Forum Pembelajaran', score: row.forumScore },
+        { category: 'Sistem Pembelajaran', score: row.sistemScore },
+        { category: 'Strategi Pembelajaran', score: row.strategiScore },
+        { category: 'Teknologi Pembelajaran', score: row.teknologiScore },
+        { category: 'Integrasi Sistem', score: row.integrasiScore },
+        { category: 'Evaluasi ASN Corpu', score: row.evaluasiScore },
+      ];
 
-        // Calculate scores for each category
-        const categorySummaries = await Promise.all(
-          categories.map(async (category) => {
-            const categoryData = await db.select()
-              .from(category.table)
-              .where(eq(category.table.surveiId, surveiId))
-
-            if (categoryData.length === 0) {
-              return {
-                category: category.name,
-                score: 0
-              }
-            }
-
-            const record = categoryData[0]
-            let totalScore = 0
-
-            // For all categories, sum the numeric values (no range restriction)
-            category.questions.forEach(question => {
-              const value = (record as Record<string, unknown>)[question]
-              if (typeof value === 'number' && !isNaN(value)) {
-                totalScore += value
-              }
-            })
-
-            return {
-              category: category.name,
-              score: totalScore
-            }
-          })
-        )
-
-        const totalScore = categorySummaries.reduce((sum, cat) => sum + cat.score, 0)
-
-        return {
-          surveiId: survey.surveiId,
-          userId: survey.userId,
-          tahun: survey.tahun,
-          fullName: survey.nama_instansi || survey.userFullName || `User ${survey.userId}`,
-          categories: categorySummaries,
-          summary: {
-            totalScore
-          }
-        }
-      })
-    )
+      return {
+        surveiId: row.surveiId,
+        userId: row.userId,
+        tahun: row.tahun,
+        fullName: row.fullName,
+        categories,
+        summary: { totalScore: row.totalScore },
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -245,16 +247,17 @@ export async function GET(request: Request) {
         page,
         limit,
         total: totalCount,
-        totalPages: Math.ceil(totalCount / limit)
+        totalPages: Math.ceil(totalCount / limit),
       },
-      message: 'Ringkasan kategori untuk semua survei'
-    })
-
+    });
   } catch (error) {
-    console.error('GET summary_kategori error:', error)
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('GET /api/summary_kategori error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
