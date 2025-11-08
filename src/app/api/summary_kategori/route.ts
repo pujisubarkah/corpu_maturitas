@@ -65,8 +65,7 @@ export async function GET(request: Request) {
         name: 'Teknologi Pembelajaran',
         table: teknologiPembelajaran,
         questions: ['p29', 'p30', 'p31', 'p32', 'p33'],
-        maxScore: 25,
-        isText: true
+        maxScore: 25
       },
       {
         key: 'integrasiSistem',
@@ -133,24 +132,13 @@ export async function GET(request: Request) {
           const record = categoryData[0]
           let totalScore = 0
 
-          // Calculate score based on question type
-          if (category.isText) {
-            // For text fields, count filled fields
-            category.questions.forEach(question => {
-              const value = (record as Record<string, unknown>)[question]
-              if (value && typeof value === 'string' && value.trim() !== '') {
-                totalScore += 5 // Max score per text question
-              }
-            })
-          } else {
-            // For numeric fields, sum the values (no range restriction)
-            category.questions.forEach(question => {
-              const value = (record as Record<string, unknown>)[question]
-              if (typeof value === 'number' && !isNaN(value)) {
-                totalScore += value
-              }
-            })
-          }
+          // For all categories, sum the numeric values (no range restriction)
+          category.questions.forEach(question => {
+            const value = (record as Record<string, unknown>)[question]
+            if (typeof value === 'number' && !isNaN(value)) {
+              totalScore += value
+            }
+          })
 
           return {
             category: category.name,
@@ -220,24 +208,13 @@ export async function GET(request: Request) {
             const record = categoryData[0]
             let totalScore = 0
 
-            // Calculate score based on question type
-            if (category.isText) {
-              // For text fields, count filled fields
-              category.questions.forEach(question => {
-                const value = (record as Record<string, unknown>)[question]
-                if (value && typeof value === 'string' && value.trim() !== '') {
-                  totalScore += 5 // Max score per text question
-                }
-              })
-            } else {
-              // For numeric fields, sum the values (no range restriction)
-              category.questions.forEach(question => {
-                const value = (record as Record<string, unknown>)[question]
-                if (typeof value === 'number' && !isNaN(value)) {
-                  totalScore += value
-                }
-              })
-            }
+            // For all categories, sum the numeric values (no range restriction)
+            category.questions.forEach(question => {
+              const value = (record as Record<string, unknown>)[question]
+              if (typeof value === 'number' && !isNaN(value)) {
+                totalScore += value
+              }
+            })
 
             return {
               category: category.name,

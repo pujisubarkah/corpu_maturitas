@@ -1,4 +1,5 @@
 "use client";
+import { Gauge, TrendingUp, TrendingDown, Award, Rocket } from 'lucide-react';
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -13,15 +14,7 @@ interface JawabanItem {
   pertanyaan_kode: string;
 }
 
-interface ApiSurveyData {
-  surveiId: number;
-  userId: number;
-  tahun: number;
-  fullName: string;
-  createdAt: string;
-  updatedAt: string;
-  [key: string]: string | number | null;
-}
+// (ApiSurveyData interface removed, not used)
 
 interface SurveyData {
   id: number;
@@ -37,9 +30,28 @@ interface SurveyData {
   verified_at: string | null;
   jawaban: JawabanItem[]; // Keep for compatibility
   verification_answers: JawabanItem[] | null;
+  maturitas: string; // Added property for maturity level
 }
 
 export default function VerificationSurveyPage() {
+  const [summaryMaturitas, setSummaryMaturitas] = useState<{
+    Initial: number;
+    'Intermediate (Low)': number;
+    'Intermediate (High)': number;
+    Mature: number;
+    Advanced: number;
+  } | null>(null);
+
+  useEffect(() => {
+    // Fetch summary_maturitas on mount
+    fetch('/api/summary_maturitas')
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data) {
+          setSummaryMaturitas(result.data);
+        }
+      });
+  }, []);
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug;
@@ -47,44 +59,51 @@ export default function VerificationSurveyPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const [filterTahun, setFilterTahun] = useState<string>('');
+  const [filterMaturitas, setFilterMaturitas] = useState<string>('');
 
   const fetchSurveys = async () => {
     try {
-      // Get all surveys from answer API
-      const response = await fetch('/api/answer');
+      // Build query params for filter
+      let query = '/api/summary_kategori?limit=1000';
+      if (filterTahun) query += `&tahun=${filterTahun}`;
+  // Removed instansi filter, only tahun and tingkat maturitas
+      const response = await fetch(query);
       const result = await response.json();
-      if (result.success) {
-        // Calculate scores for each survey from flattened p1-p41 data
-        const surveysWithScores = result.data.map((survey: ApiSurveyData) => {
-          // Calculate self assessment score from p1-p41 (all questions)
-          let selfAssessmentScore = 0;
-          // Sum all p1-p41 values (only numeric ones)
-          for (let i = 1; i <= 41; i++) {
-            const value = survey[`p${i}`];
-            if (typeof value === 'number' && !isNaN(value)) {
-              selfAssessmentScore += value;
-            }
-          }
-
+      if (result.success && Array.isArray(result.data)) {
+        const surveysWithScores = result.data.map((survey: {
+          surveiId: number;
+          userId: number;
+          tahun: number;
+          fullName: string;
+          createdAt?: string;
+          updatedAt?: string;
+          summary?: { totalScore?: number };
+        }) => {
+          const score = survey.summary?.totalScore || 0;
           return {
             id: survey.surveiId,
             instansi_id: survey.userId,
             nama_instansi: survey.fullName,
             tahun: survey.tahun,
-            created_at: survey.createdAt,
-            updated_at: survey.updatedAt,
-            self_assessment_score: selfAssessmentScore,
-            // These fields might not be available in the new API, set defaults
+            created_at: survey.createdAt || '',
+            updated_at: survey.updatedAt || '',
+            self_assessment_score: score,
+            maturitas: getMaturityLevel(score),
             is_verified: false,
             verified_by: null,
             verified_at: null,
             verification_score: null,
-            jawaban: [], // Keep empty for compatibility
+            jawaban: [],
             verification_answers: null
           };
         });
-        setSurveys(surveysWithScores);
-        setCurrentPage(1); // Reset to first page when new data is loaded
+        // Filter by tingkat maturitas if selected
+        const filtered = filterMaturitas
+          ? surveysWithScores.filter((s: SurveyData) => s.maturitas === filterMaturitas)
+          : surveysWithScores;
+        setSurveys(filtered);
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error('Error fetching surveys:', error);
@@ -93,16 +112,23 @@ export default function VerificationSurveyPage() {
 
   useEffect(() => {
     fetchSurveys().finally(() => setLoading(false));
-  }, []);
+    // Refresh data when window regains focus
+    const handleFocus = () => {
+      fetchSurveys();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterTahun, filterMaturitas]);
 
   // Refresh data when component mounts (useful after verification)
   useEffect(() => {
     const handleFocus = () => {
       fetchSurveys();
     };
-    
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getMaturityLevel = (score: number): string => {
@@ -166,6 +192,100 @@ export default function VerificationSurveyPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow p-8">
+          {/* Summary Cards: Jumlah Instansi per Tingkat Maturitas */}
+          {summaryMaturitas && (
+            <div className="mb-8 flex flex-wrap gap-6 justify-center">
+              {[
+                {
+                  label: 'Initial',
+                  gradient: 'bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400',
+                  text: 'text-gray-700',
+                  border: 'border-gray-300',
+                  icon: <Gauge className="h-10 w-10 mb-2" />
+                },
+                {
+                  label: 'Intermediate (Low)',
+                  gradient: 'bg-gradient-to-br from-yellow-100 via-yellow-300 to-yellow-400',
+                  text: 'text-yellow-800',
+                  border: 'border-yellow-300',
+                  icon: <TrendingDown className="h-10 w-10 mb-2" />
+                },
+                {
+                  label: 'Intermediate (High)',
+                  gradient: 'bg-gradient-to-br from-orange-100 via-orange-300 to-orange-400',
+                  text: 'text-orange-800',
+                  border: 'border-orange-300',
+                  icon: <TrendingUp className="h-10 w-10 mb-2" />
+                },
+                {
+                  label: 'Mature',
+                  gradient: 'bg-gradient-to-br from-blue-100 via-blue-300 to-blue-400',
+                  text: 'text-blue-800',
+                  border: 'border-blue-300',
+                  icon: <Award className="h-10 w-10 mb-2" />
+                },
+                {
+                  label: 'Advanced',
+                  gradient: 'bg-gradient-to-br from-green-100 via-green-300 to-green-400',
+                  text: 'text-green-800',
+                  border: 'border-green-300',
+                  icon: <Rocket className="h-10 w-10 mb-2" />
+                }
+              ].map(item => (
+                <div
+                  key={item.label}
+                  className={`flex flex-col items-center justify-center px-8 py-6 rounded-2xl border shadow-lg ${item.gradient} ${item.text} ${item.border} transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:-translate-y-1`}
+                  style={{ minWidth: 170 }}
+                >
+                  {item.icon}
+                  <span className="text-2xl font-extrabold tracking-tight mb-1 drop-shadow-lg">{summaryMaturitas[item.label as keyof typeof summaryMaturitas]}</span>
+                  <span className="text-sm font-semibold uppercase tracking-wide opacity-80 drop-shadow">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Filter Controls */}
+          <div className="mb-6 flex flex-wrap gap-4 items-center">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+              <input
+                type="text"
+                value={filterTahun}
+                onChange={e => setFilterTahun(e.target.value)}
+                placeholder="Contoh: 2025"
+                className="border rounded px-3 py-2 text-sm"
+                style={{ minWidth: 100 }}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tingkat Maturitas</label>
+              <select
+                value={filterMaturitas}
+                onChange={e => setFilterMaturitas(e.target.value)}
+                className="border rounded px-3 py-2 text-sm"
+                style={{ minWidth: 180 }}
+              >
+                <option value="">Semua Tingkat</option>
+                <option value="Initial">Initial</option>
+                <option value="Intermediate (Low)">Intermediate (Low)</option>
+                <option value="Intermediate (High)">Intermediate (High)</option>
+                <option value="Mature">Mature</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+            <button
+              onClick={() => fetchSurveys()}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+            >
+              Filter
+            </button>
+            <button
+              onClick={() => { setFilterTahun(''); setFilterMaturitas(''); fetchSurveys(); }}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded shadow hover:bg-gray-300"
+            >
+              Reset
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -175,9 +295,6 @@ export default function VerificationSurveyPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nama Instansi
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tanggal Kirim
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Verifikasi
@@ -199,9 +316,6 @@ export default function VerificationSurveyPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {survey.nama_instansi}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(survey.created_at).toLocaleDateString('id-ID')}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       {survey.is_verified ? (
                         <span className="text-green-600 bg-green-50 px-3 py-1 rounded-md text-xs font-medium cursor-not-allowed">
@@ -219,8 +333,18 @@ export default function VerificationSurveyPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="text-center">
                         <div className="font-medium">{survey.self_assessment_score || 0}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {getMaturityLevel(survey.self_assessment_score || 0)}
+                        <div className="mt-1 flex justify-center">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-semibold
+                              ${survey.maturitas === 'Initial' ? 'bg-gray-200 text-gray-700' : ''}
+                              ${survey.maturitas === 'Intermediate (Low)' ? 'bg-yellow-100 text-yellow-800' : ''}
+                              ${survey.maturitas === 'Intermediate (High)' ? 'bg-orange-100 text-orange-800' : ''}
+                              ${survey.maturitas === 'Mature' ? 'bg-blue-100 text-blue-800' : ''}
+                              ${survey.maturitas === 'Advanced' ? 'bg-green-100 text-green-800' : ''}
+                            `}
+                          >
+                            {survey.maturitas}
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -230,8 +354,18 @@ export default function VerificationSurveyPage() {
                           {survey.verification_score !== null ? survey.verification_score : '-'}
                         </div>
                         {survey.verification_score !== null && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            {getMaturityLevel(survey.verification_score!)}
+                          <div className="mt-1 flex justify-center">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-semibold
+                                ${getMaturityLevel(survey.verification_score!) === 'Initial' ? 'bg-gray-200 text-gray-700' : ''}
+                                ${getMaturityLevel(survey.verification_score!) === 'Intermediate (Low)' ? 'bg-yellow-100 text-yellow-800' : ''}
+                                ${getMaturityLevel(survey.verification_score!) === 'Intermediate (High)' ? 'bg-orange-100 text-orange-800' : ''}
+                                ${getMaturityLevel(survey.verification_score!) === 'Mature' ? 'bg-blue-100 text-blue-800' : ''}
+                                ${getMaturityLevel(survey.verification_score!) === 'Advanced' ? 'bg-green-100 text-green-800' : ''}
+                              `}
+                            >
+                              {getMaturityLevel(survey.verification_score!)}
+                            </span>
                           </div>
                         )}
                       </div>
