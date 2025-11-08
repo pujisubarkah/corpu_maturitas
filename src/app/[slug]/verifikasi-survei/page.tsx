@@ -2,6 +2,11 @@
 import { Gauge, TrendingUp, TrendingDown, Award, Rocket } from 'lucide-react';
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import useSWR from 'swr';
+import { useVerifikasi } from '../chart-by-category/useSWRFetcher';
+
+// SWR fetcher function
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 
 // (ApiSurveyData interface removed, not used)
@@ -50,15 +55,17 @@ export default function VerificationSurveyPage() {
   const [filterTahun, setFilterTahun] = useState<string>('');
   const [filterMaturitas, setFilterMaturitas] = useState<string>('');
 
-  const fetchSurveys = async () => {
-    try {
-      let query = '/api/summary_kategori?limit=1000';
-      if (filterTahun) query += `&tahun=${filterTahun}`;
-      const response = await fetch(query);
-      const result = await response.json();
-  let surveysWithScores: SurveyData[] = [];
-      if (result.success && Array.isArray(result.data)) {
-  surveysWithScores = result.data.map((survey: Record<string, unknown>) => {
+  // Use SWR for data fetching
+  const summaryKey = filterTahun ? `/api/summary_kategori?limit=1000&tahun=${filterTahun}` : '/api/summary_kategori?limit=1000';
+  const { data: summaryData } = useSWR(summaryKey, fetcher, { revalidateOnFocus: false });
+  const { data: verifData } = useVerifikasi();
+
+  // Process data when both APIs have loaded
+  useEffect(() => {
+    if (summaryData && verifData) {
+      let surveysWithScores: SurveyData[] = [];
+      if (summaryData.success && Array.isArray(summaryData.data)) {
+        surveysWithScores = summaryData.data.map((survey: Record<string, unknown>) => {
           const summary = survey.summary as { totalScore?: number } | undefined;
           const score = summary?.totalScore || 0;
           return {
@@ -77,19 +84,19 @@ export default function VerificationSurveyPage() {
           surveysWithScores = surveysWithScores.filter((s: SurveyData) => s.maturitas === filterMaturitas);
         }
       }
-      // Fetch verifikasi data
-      const verifRes = await fetch('/api/verifikasi');
-      const verifJson = await verifRes.json();
+
+      // Create verifikasi map
       const verifMap = new Map<string, Record<string, unknown>>();
-      if (verifJson.success && Array.isArray(verifJson.data)) {
-        verifJson.data.forEach((v: Record<string, unknown>) => {
+      if (verifData.success && Array.isArray(verifData.data)) {
+        verifData.data.forEach((v: Record<string, unknown>) => {
           if (typeof v.user_id === 'number' && typeof v.tahun === 'number') {
             verifMap.set(`${v.user_id}_${v.tahun}`, v);
           }
         });
       }
-      // Gabungkan data verifikasi ke survei
-  const merged = surveysWithScores.map((s: SurveyData) => {
+
+      // Merge verifikasi data with surveys
+      const merged = surveysWithScores.map((s: SurveyData) => {
         const verif = verifMap.get(`${s.user_id}_${s.tahun}`) as Record<string, unknown> | undefined;
         return {
           ...s,
@@ -97,33 +104,17 @@ export default function VerificationSurveyPage() {
           total_verification: verif?.total_verification as number ?? null
         };
       });
+
       setSurveys(merged);
       setCurrentPage(1);
-    } catch (error) {
-      console.error('Error fetching surveys:', error);
+      setLoading(false);
     }
-  };
+  }, [summaryData, verifData, filterMaturitas]);
 
+  // Set loading to true when filters change
   useEffect(() => {
-    fetchSurveys().finally(() => setLoading(false));
-    // Refresh data when window regains focus
-    const handleFocus = () => {
-      fetchSurveys();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLoading(true);
   }, [filterTahun, filterMaturitas]);
-
-  // Refresh data when component mounts (useful after verification)
-  useEffect(() => {
-    const handleFocus = () => {
-      fetchSurveys();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const getMaturityLevel = (score: number): string => {
     if (score >= 0 && score <= 1000) return 'Initial';
@@ -268,13 +259,13 @@ export default function VerificationSurveyPage() {
               </select>
             </div>
             <button
-              onClick={() => fetchSurveys()}
+              onClick={() => {/* No-op, filters update automatically */}}
               className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
             >
               Filter
             </button>
             <button
-              onClick={() => { setFilterTahun(''); setFilterMaturitas(''); fetchSurveys(); }}
+              onClick={() => { setFilterTahun(''); setFilterMaturitas(''); }}
               className="bg-gray-200 text-gray-700 px-4 py-2 rounded shadow hover:bg-gray-300"
             >
               Reset

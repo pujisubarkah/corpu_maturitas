@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import useSWR from 'swr';
+import { useSummaryKategori } from '../chart-by-category/useSWRFetcher';
 
 interface SurveyData {
   surveiId: number;
@@ -96,58 +98,55 @@ export default function ChartSelfAssessmentPage() {
     setCurrentPage(1);
   };
 
+  // Use SWR for data fetching with caching
+  const { data: summaryData, error: summaryError } = useSummaryKategori(currentPage, itemsPerPage);
+
+  // Process data when SWR data is available
   useEffect(() => {
-    const fetchSurveyData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/summary_kategori?page=${currentPage}&limit=${itemsPerPage}`);
-        const result: ApiResponse = await response.json();
+    if (summaryData) {
+      if (summaryData.success && summaryData.data) {
+        const processedData: ChartData[] = summaryData.data
+          .filter((survey: SurveyData) => {
+            // Only include surveys with valid fullName
+            return survey.fullName && survey.fullName.trim() !== '' && !survey.fullName.startsWith('User ');
+          })
+          .map((survey: SurveyData) => {
+            // Use the totalScore from summary_kategori API for consistency
+            const selfAssessmentScore = survey.summary.totalScore;
 
-        if (result.success && result.data) {
-          // Use the summary_kategori API data which provides consistent category-based scoring
-          const processedData: ChartData[] = result.data
-            .filter((survey: SurveyData) => {
-              // Only include surveys with valid fullName
-              return survey.fullName && survey.fullName.trim() !== '' && !survey.fullName.startsWith('User ');
-            })
-            .map((survey: SurveyData) => {
-              // Use the totalScore from summary_kategori API for consistency
-              const selfAssessmentScore = survey.summary.totalScore;
+            // Determine maturity level using the same logic as chart-by-category
+            let maturityLevel = 'Unknown';
+            if (selfAssessmentScore >= 0 && selfAssessmentScore <= 1000) maturityLevel = 'Initial';
+            else if (selfAssessmentScore >= 1001 && selfAssessmentScore <= 2000) maturityLevel = 'Intermediate (Low)';
+            else if (selfAssessmentScore >= 2001 && selfAssessmentScore <= 3000) maturityLevel = 'Intermediate (High)';
+            else if (selfAssessmentScore >= 3001 && selfAssessmentScore <= 3500) maturityLevel = 'Mature';
+            else if (selfAssessmentScore >= 3501) maturityLevel = 'Advanced';
 
-              // Determine maturity level using the same logic as chart-by-category
-              let maturityLevel = 'Unknown';
-              if (selfAssessmentScore >= 0 && selfAssessmentScore <= 1000) maturityLevel = 'Initial';
-              else if (selfAssessmentScore >= 1001 && selfAssessmentScore <= 2000) maturityLevel = 'Intermediate (Low)';
-              else if (selfAssessmentScore >= 2001 && selfAssessmentScore <= 3000) maturityLevel = 'Intermediate (High)';
-              else if (selfAssessmentScore >= 3001 && selfAssessmentScore <= 3500) maturityLevel = 'Mature';
-              else if (selfAssessmentScore >= 3501) maturityLevel = 'Advanced';
+            // Pass userId and tahun for profile link
+            return {
+              name: survey.fullName,
+              score: selfAssessmentScore,
+              maturityLevel,
+              userId: survey.userId,
+              tahun: survey.tahun
+            };
+          });
 
-              // Pass userId and tahun for profile link
-              return {
-                name: survey.fullName,
-                score: selfAssessmentScore,
-                maturityLevel,
-                userId: survey.userId,
-                tahun: survey.tahun
-              };
-            });
-
-          setChartData(processedData);
-          setTotalPages(result.pagination?.totalPages || 1);
-          setTotalCount(result.pagination?.total || processedData.length);
-        } else {
-          setError('Gagal memuat data survei');
-        }
-      } catch (err) {
-        console.error('Error fetching survey data:', err);
-        setError('Terjadi kesalahan saat memuat data');
-      } finally {
-        setLoading(false);
+        setChartData(processedData);
+        setTotalPages(summaryData.pagination?.totalPages || 1);
+        setTotalCount(summaryData.pagination?.total || processedData.length);
+        setError(null);
+      } else {
+        setError('Gagal memuat data survei');
       }
-    };
+      setLoading(false);
+    }
 
-    fetchSurveyData();
-  }, [currentPage]);
+    if (summaryError) {
+      setError('Terjadi kesalahan saat memuat data');
+      setLoading(false);
+    }
+  }, [summaryData, summaryError]);
 
   // Prepare data for maturity level distribution pie chart (only current page)
   const maturityDistribution = currentData.reduce((acc, item) => {
