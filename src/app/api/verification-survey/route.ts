@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '../../../lib/db'
 import { jawaban } from '../../../lib/schemas/jawaban'
-import { masterInstansiType as instansi } from '../../../lib/schemas/instansi'
 import { eq, sql } from 'drizzle-orm'
 
 // GET: Get surveys that need verification
@@ -31,7 +30,7 @@ export async function GET(request: Request) {
     const surveys = await db
       .select({
         id: jawaban.id,
-        instansi_id: jawaban.instansi_id,
+        user_id: jawaban.user_id,
         tahun: jawaban.tahun,
         is_verified: jawaban.is_verified,
         jawaban: jawaban.jawaban,
@@ -42,14 +41,14 @@ export async function GET(request: Request) {
         updated_at: jawaban.updated_at,
         profile_name: sql<string>`NULL`, // Placeholder - will be filled from user data if needed
         profile_email: sql<string>`NULL`, // Placeholder - will be filled from user data if needed
-        nama_instansi: instansi.nama_instansi,
+        // nama_instansi: instansi.nama_instansi, // Hapus, tidak ada relasi instansi
         // Calculate self assessment score from jawaban JSON using LATERAL
         self_assessment_score: sql<number>`COALESCE(self_scores.score, 0)`,
         // Calculate verification score from verification_answers JSON using LATERAL
         verification_score: sql<number>`COALESCE(verification_scores.score, NULL)`
       })
       .from(jawaban)
-      .leftJoin(instansi, eq(jawaban.instansi_id, instansi.instansi_id))
+      // .leftJoin(instansi, eq(jawaban.instansi_id, instansi.instansi_id)) // Hapus relasi instansi
       .leftJoin(
         sql`(SELECT id, SUM((value->>'jawaban')::numeric) as score FROM jawaban, jsonb_array_elements(jawaban.jawaban) as value WHERE (value->>'kategori_id')::integer BETWEEN 2 AND 9 GROUP BY id) as self_scores`,
         eq(jawaban.id, sql`self_scores.id`)

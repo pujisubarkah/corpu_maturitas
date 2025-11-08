@@ -254,7 +254,7 @@ export async function simpanJawaban(data: {
 }
 
 export async function simpanJawabanVerifikasi(data: {
-  instansiId: number;
+  userId: number;
   tahun: number;
   jawaban?: Record<string, string | number>;
   bukti_dukung?: Record<string, string>;
@@ -275,7 +275,7 @@ export async function simpanJawabanVerifikasi(data: {
           updated_at: new Date()
         })
         .where(and(
-          eq(jawaban.instansi_id, data.instansiId),
+          eq(jawaban.user_id, data.userId),
           eq(jawaban.tahun, data.tahun)
         ))
         .returning({ id: jawaban.id });
@@ -284,7 +284,7 @@ export async function simpanJawabanVerifikasi(data: {
         // If no record exists, create a new one with both original answers and verification
         const insertResult = await db.insert(jawaban)
           .values({
-            instansi_id: data.instansiId,
+            user_id: data.userId,
             tahun: data.tahun,
             jawaban: data.jawaban, // Original survey data
             bukti_dukung: data.bukti_dukung || null,
@@ -313,7 +313,7 @@ export async function simpanJawabanVerifikasi(data: {
       // This is initial user submission - insert or update jawaban
       const result = await db.insert(jawaban)
         .values({
-          instansi_id: data.instansiId,
+          user_id: data.userId,
           tahun: data.tahun,
           jawaban: data.jawaban,
           bukti_dukung: data.bukti_dukung || null,
@@ -324,7 +324,7 @@ export async function simpanJawabanVerifikasi(data: {
           updated_at: new Date()
         })
         .onConflictDoUpdate({
-          target: [jawaban.instansi_id, jawaban.tahun],
+          target: [jawaban.user_id, jawaban.tahun],
           set: {
             jawaban: data.jawaban,
             bukti_dukung: data.bukti_dukung || null,

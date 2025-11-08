@@ -3,34 +3,22 @@ import { Gauge, TrendingUp, TrendingDown, Award, Rocket } from 'lucide-react';
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-interface JawabanItem {
-  urutan: number;
-  jawaban: number | string;
-  pertanyaan: string;
-  kategori_id: number;
-  tipe_jawaban: string;
-  kategori_nama: string;
-  pertanyaan_id: number;
-  pertanyaan_kode: string;
-}
 
 // (ApiSurveyData interface removed, not used)
 
 interface SurveyData {
   id: number;
-  instansi_id: number;
+  user_id: number;
   nama_instansi: string;
   tahun: number;
-  created_at: string;
-  updated_at: string;
-  self_assessment_score?: number;
-  verification_score?: number | null;
   is_verified: boolean;
-  verified_by: string | null;
-  verified_at: string | null;
-  jawaban: JawabanItem[]; // Keep for compatibility
-  verification_answers: JawabanItem[] | null;
-  maturitas: string; // Added property for maturity level
+  verification_answers?: Record<string, string | number>;
+  total_verification: number | null;
+  kategori_verification?: Record<string, number>;
+  self_assessment_score?: number;
+  maturitas?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function VerificationSurveyPage() {
@@ -64,47 +52,53 @@ export default function VerificationSurveyPage() {
 
   const fetchSurveys = async () => {
     try {
-      // Build query params for filter
       let query = '/api/summary_kategori?limit=1000';
       if (filterTahun) query += `&tahun=${filterTahun}`;
-  // Removed instansi filter, only tahun and tingkat maturitas
       const response = await fetch(query);
       const result = await response.json();
+  let surveysWithScores: SurveyData[] = [];
       if (result.success && Array.isArray(result.data)) {
-        const surveysWithScores = result.data.map((survey: {
-          surveiId: number;
-          userId: number;
-          tahun: number;
-          fullName: string;
-          createdAt?: string;
-          updatedAt?: string;
-          summary?: { totalScore?: number };
-        }) => {
-          const score = survey.summary?.totalScore || 0;
+  surveysWithScores = result.data.map((survey: Record<string, unknown>) => {
+          const summary = survey.summary as { totalScore?: number } | undefined;
+          const score = summary?.totalScore || 0;
           return {
             id: survey.surveiId,
-            instansi_id: survey.userId,
+            user_id: survey.userId,
             nama_instansi: survey.fullName,
             tahun: survey.tahun,
             created_at: survey.createdAt || '',
             updated_at: survey.updatedAt || '',
             self_assessment_score: score,
-            maturitas: getMaturityLevel(score),
-            is_verified: false,
-            verified_by: null,
-            verified_at: null,
-            verification_score: null,
-            jawaban: [],
-            verification_answers: null
+            maturitas: getMaturityLevel(score)
           };
         });
         // Filter by tingkat maturitas if selected
-        const filtered = filterMaturitas
-          ? surveysWithScores.filter((s: SurveyData) => s.maturitas === filterMaturitas)
-          : surveysWithScores;
-        setSurveys(filtered);
-        setCurrentPage(1);
+        if (filterMaturitas) {
+          surveysWithScores = surveysWithScores.filter((s: SurveyData) => s.maturitas === filterMaturitas);
+        }
       }
+      // Fetch verifikasi data
+      const verifRes = await fetch('/api/verifikasi');
+      const verifJson = await verifRes.json();
+      const verifMap = new Map<string, Record<string, unknown>>();
+      if (verifJson.success && Array.isArray(verifJson.data)) {
+        verifJson.data.forEach((v: Record<string, unknown>) => {
+          if (typeof v.user_id === 'number' && typeof v.tahun === 'number') {
+            verifMap.set(`${v.user_id}_${v.tahun}`, v);
+          }
+        });
+      }
+      // Gabungkan data verifikasi ke survei
+  const merged = surveysWithScores.map((s: SurveyData) => {
+        const verif = verifMap.get(`${s.user_id}_${s.tahun}`) as Record<string, unknown> | undefined;
+        return {
+          ...s,
+          is_verified: verif?.is_verified as boolean || false,
+          total_verification: verif?.total_verification as number ?? null
+        };
+      });
+      setSurveys(merged);
+      setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching surveys:', error);
     }
@@ -351,20 +345,20 @@ export default function VerificationSurveyPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="text-center">
                         <div className="font-medium">
-                          {survey.verification_score !== null ? survey.verification_score : '-'}
+                          {survey.total_verification !== null ? survey.total_verification : '-'}
                         </div>
-                        {survey.verification_score !== null && (
+                        {survey.total_verification !== null && (
                           <div className="mt-1 flex justify-center">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-semibold
-                                ${getMaturityLevel(survey.verification_score!) === 'Initial' ? 'bg-gray-200 text-gray-700' : ''}
-                                ${getMaturityLevel(survey.verification_score!) === 'Intermediate (Low)' ? 'bg-yellow-100 text-yellow-800' : ''}
-                                ${getMaturityLevel(survey.verification_score!) === 'Intermediate (High)' ? 'bg-orange-100 text-orange-800' : ''}
-                                ${getMaturityLevel(survey.verification_score!) === 'Mature' ? 'bg-blue-100 text-blue-800' : ''}
-                                ${getMaturityLevel(survey.verification_score!) === 'Advanced' ? 'bg-green-100 text-green-800' : ''}
+                                ${getMaturityLevel(survey.total_verification) === 'Initial' ? 'bg-gray-200 text-gray-700' : ''}
+                                ${getMaturityLevel(survey.total_verification) === 'Intermediate (Low)' ? 'bg-yellow-100 text-yellow-800' : ''}
+                                ${getMaturityLevel(survey.total_verification) === 'Intermediate (High)' ? 'bg-orange-100 text-orange-800' : ''}
+                                ${getMaturityLevel(survey.total_verification) === 'Mature' ? 'bg-blue-100 text-blue-800' : ''}
+                                ${getMaturityLevel(survey.total_verification) === 'Advanced' ? 'bg-green-100 text-green-800' : ''}
                               `}
                             >
-                              {getMaturityLevel(survey.verification_score!)}
+                              {getMaturityLevel(survey.total_verification)}
                             </span>
                           </div>
                         )}

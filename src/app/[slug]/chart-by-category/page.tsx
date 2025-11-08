@@ -52,6 +52,16 @@ interface InstitutionCategoryData {
   evaluasiAsn: number;
   totalScore: number;
   maturityLevel: string;
+  verifikasiKategori?: {
+    strukturAsn?: number;
+    manajemenPengetahuan?: number;
+    forumPembelajaran?: number;
+    sistemPembelajaran?: number;
+    strategiPembelajaran?: number;
+    teknologiPembelajaran?: number;
+    integrasiSistem?: number;
+    evaluasiAsn?: number;
+  };
 }
 
 
@@ -76,14 +86,24 @@ export default function ChartByCategoryPage() {
     const fetchSurveyData = async () => {
       try {
         setLoading(true);
-
         // Fetch survey data from summary_kategori API with pagination
         const surveyResponse = await fetch(`/api/summary_kategori?page=${currentPage}&limit=${itemsPerPage}`);
         const surveyResult: ApiResponse = await surveyResponse.json();
-
         // Fetch user data to get fullName mapping (get all users)
         const userResponse = await fetch('/api/user?limit=1000');
         const userResult: UserApiResponse = await userResponse.json();
+        // Fetch verification data
+        const verifResponse = await fetch('/api/verifikasi');
+        const verifResult = await verifResponse.json();
+
+        const verifMap: Record<string, unknown> = {};
+        if (verifResult.success && Array.isArray(verifResult.data)) {
+          verifResult.data.forEach((v: Record<string, unknown>) => {
+            if (typeof v.user_id === 'number' && typeof v.tahun === 'number' && v.kategori_verification) {
+              verifMap[`${v.user_id}_${v.tahun}`] = v.kategori_verification;
+            }
+          });
+        }
 
         if (surveyResult.success && surveyResult.data && userResult.success && userResult.data) {
           // Create userId to fullName mapping (only for users with fullName)
@@ -129,6 +149,9 @@ export default function ChartByCategoryPage() {
               else if (totalScore >= 3001 && totalScore <= 3500) maturityLevel = 'Mature';
               else if (totalScore >= 3501) maturityLevel = 'Advanced';
 
+              // Tambahkan data verifikasi kategori
+              const verifKategori = verifMap[`${survey.userId}_${survey.tahun}`] || {};
+
               return {
                 name: userMap.get(Number(survey.userId)) || `User ${survey.userId}`,
                 strukturAsn: categoryScores.strukturAsn || 0,
@@ -141,6 +164,7 @@ export default function ChartByCategoryPage() {
                 evaluasiAsn: categoryScores.evaluasiAsn || 0,
                 totalScore,
                 maturityLevel,
+                verifikasiKategori: verifKategori
               };
             });
 
@@ -289,14 +313,14 @@ export default function ChartByCategoryPage() {
           {filteredInstitutionData.map((institution: InstitutionCategoryData, index: number) => {
             // Prepare data for radar chart
             const radarData = [
-              { category: 'Struktur ASN', fullName: 'Struktur ASN Corpu', score: institution.strukturAsn },
-              { category: 'Manajemen Pengetahuan', fullName: 'Manajemen Pengetahuan', score: institution.manajemenPengetahuan },
-              { category: 'Forum Pembelajaran', fullName: 'Forum Pembelajaran', score: institution.forumPembelajaran },
-              { category: 'Sistem Pembelajaran', fullName: 'Sistem Pembelajaran', score: institution.sistemPembelajaran },
-              { category: 'Strategi Pembelajaran', fullName: 'Strategi Pembelajaran', score: institution.strategiPembelajaran },
-              { category: 'Teknologi Pembelajaran', fullName: 'Teknologi Pembelajaran', score: institution.teknologiPembelajaran },
-              { category: 'Integrasi Sistem', fullName: 'Integrasi Sistem', score: institution.integrasiSistem },
-              { category: 'Evaluasi ASN', fullName: 'Evaluasi ASN Corpu', score: institution.evaluasiAsn }
+              { category: 'Struktur ASN', fullName: 'Struktur ASN Corpu', score: institution.strukturAsn, verifikasi: institution.verifikasiKategori?.strukturAsn || 0 },
+              { category: 'Manajemen Pengetahuan', fullName: 'Manajemen Pengetahuan', score: institution.manajemenPengetahuan, verifikasi: institution.verifikasiKategori?.manajemenPengetahuan || 0 },
+              { category: 'Forum Pembelajaran', fullName: 'Forum Pembelajaran', score: institution.forumPembelajaran, verifikasi: institution.verifikasiKategori?.forumPembelajaran || 0 },
+              { category: 'Sistem Pembelajaran', fullName: 'Sistem Pembelajaran', score: institution.sistemPembelajaran, verifikasi: institution.verifikasiKategori?.sistemPembelajaran || 0 },
+              { category: 'Strategi Pembelajaran', fullName: 'Strategi Pembelajaran', score: institution.strategiPembelajaran, verifikasi: institution.verifikasiKategori?.strategiPembelajaran || 0 },
+              { category: 'Teknologi Pembelajaran', fullName: 'Teknologi Pembelajaran', score: institution.teknologiPembelajaran, verifikasi: institution.verifikasiKategori?.teknologiPembelajaran || 0 },
+              { category: 'Integrasi Sistem', fullName: 'Integrasi Sistem', score: institution.integrasiSistem, verifikasi: institution.verifikasiKategori?.integrasiSistem || 0 },
+              { category: 'Evaluasi ASN', fullName: 'Evaluasi ASN Corpu', score: institution.evaluasiAsn, verifikasi: institution.verifikasiKategori?.evaluasiAsn || 0 }
             ];
 
             return (
@@ -321,20 +345,24 @@ export default function ChartByCategoryPage() {
                         tick={{ fontSize: 8 }}
                       />
                       <Radar
-                        name="Skor"
+                        name="Self Assessment"
                         dataKey="score"
                         stroke="#3b82f6"
                         fill="#3b82f6"
                         fillOpacity={0.3}
                         strokeWidth={2}
                       />
+                      <Radar
+                        name="Verifikasi"
+                        dataKey="verifikasi"
+                        stroke="#ef4444"
+                        fill="#ef4444"
+                        fillOpacity={0.1}
+                        strokeWidth={2}
+                      />
                       <Tooltip
-                        formatter={(value: number) => [
-                          value,
-                          'Skor'
-                        ]}
+                        formatter={(value: number, name: string) => [value, name]}
                         labelFormatter={(label: string, payload: readonly { payload?: { fullName?: string } }[]) => {
-                          // Try to get fullName from the first payload item if available
                           return payload && payload.length > 0 && payload[0]?.payload?.fullName
                             ? payload[0].payload.fullName
                             : label;

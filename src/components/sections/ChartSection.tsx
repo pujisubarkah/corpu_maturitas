@@ -1,44 +1,62 @@
 "use client"
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { BarChart3, PieChart, Users } from 'lucide-react';
 
-// Dummy data untuk charts
-const genderData = [
-  { label: 'Laki-laki', value: 65, color: 'bg-blue-500' },
-  { label: 'Perempuan', value: 35, color: 'bg-pink-500' }
-];
-
-const institutionData = [
-  { label: 'Kementerian', value: 28, color: 'bg-blue-600' },
-  { label: 'BUMN', value: 24, color: 'bg-green-600' },
-  { label: 'Perusahaan Swasta', value: 22, color: 'bg-purple-600' },
-  { label: 'Lembaga Pendidikan', value: 15, color: 'bg-orange-600' },
-  { label: 'Organisasi Non-Profit', value: 11, color: 'bg-red-600' }
-];
-
-const educationData = [
-  { label: 'S3/Doktor', value: 12, color: 'bg-indigo-600' },
-  { label: 'S2/Magister', value: 45, color: 'bg-blue-600' },
-  { label: 'S1/Sarjana', value: 35, color: 'bg-green-600' },
-  { label: 'Diploma', value: 6, color: 'bg-yellow-600' },
-  { label: 'SMA/SMK', value: 2, color: 'bg-gray-600' }
-];
-
-const totalResponses = 1247;
-const responseRate = 78;
+const defaultStats = {
+  totalResponses: 0,
+  responseRate: 0,
+  totalOrganizations: 0
+};
 
 export default function ChartSection() {
-  return (
-    <section className="py-20 bg-white">
-      <div className="container mx-auto px-6">
+  const [stats, setStats] = useState(defaultStats);
+  const [genderData, setGenderData] = useState<Array<{ label: string; value: number; color: string }>>([]);
+  const [institutionData, setInstitutionData] = useState<Array<{ label: string; value: number; color: string }>>([]);
+  const [educationData, setEducationData] = useState<Array<{ label: string; value: number; color: string }>>([]);
+
+  useEffect(() => {
+    // Fetch real data from API endpoints
+    Promise.all([
+      fetch('/api/summary_maturitas').then(res => res.json()),
+      fetch('/api/summary_kategori').then(res => res.json()),
+      fetch('/api/summary_gender').then(res => res.json()),
+      fetch('/api/summary_institution').then(res => res.json()),
+      fetch('/api/summary_education').then(res => res.json())
+    ]).then(([maturitas, kategori, gender, institution, education]) => {
+      // Example: totalResponses from summary_maturitas
+      const totalResponses = Number(Object.values(maturitas.data || {}).reduce((a, b) => Number(a) + (typeof b === 'number' ? b : 0), 0));
+      // Example: totalOrganizations from summary_kategori (if available)
+      const totalOrganizations = Array.isArray(kategori.data) ? kategori.data.length : 0;
+      // Example: responseRate (dummy, replace with real logic if available)
+      const responseRate = Math.round((totalResponses / (totalOrganizations || 1)) * 100);
+      setStats({ totalResponses, responseRate, totalOrganizations });
+
+      // Gender chart data
+      if (gender.data && Array.isArray(gender.data)) {
+        setGenderData(gender.data);
+      }
+      // Institution chart data
+      if (institution.data && Array.isArray(institution.data)) {
+        setInstitutionData(institution.data);
+      }
+      // Education chart data
+      if (education.data && Array.isArray(education.data)) {
+        setEducationData(education.data);
+      }
+    });
+}, []);
+
+return (
+  <section className="py-20 bg-white">
+    <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-gray-900 mb-4">
             Statistik Responden Survey
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Data analitik dari {totalResponses.toLocaleString()} responden yang telah mengikuti 
+            Data analitik dari {stats.totalResponses.toLocaleString()} responden yang telah mengikuti 
             survey maturitas corporate university di Indonesia
           </p>
         </div>
@@ -51,7 +69,7 @@ export default function ChartSection() {
                 <Users className="h-8 w-8 text-blue-600" />
               </div>
               <div className="text-3xl font-bold text-blue-600 mb-2">
-                {totalResponses.toLocaleString()}
+                {stats.totalResponses.toLocaleString()}
               </div>
               <p className="text-gray-600 font-medium">Total Responden</p>
             </CardContent>
@@ -63,7 +81,7 @@ export default function ChartSection() {
                 <BarChart3 className="h-8 w-8 text-green-600" />
               </div>
               <div className="text-3xl font-bold text-green-600 mb-2">
-                {responseRate}%
+                {stats.responseRate}%
               </div>
               <p className="text-gray-600 font-medium">Response Rate</p>
             </CardContent>
@@ -75,11 +93,50 @@ export default function ChartSection() {
                 <PieChart className="h-8 w-8 text-purple-600" />
               </div>
               <div className="text-3xl font-bold text-purple-600 mb-2">
-                156
+                {stats.totalOrganizations}
               </div>
               <p className="text-gray-600 font-medium">Organisasi</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Gender Chart Example */}
+        <div className="mb-12">
+          <h3 className="text-xl font-bold mb-4">Gender</h3>
+          <div className="flex gap-6 justify-center">
+            {genderData.map((item, index) => (
+              <div key={index} className={`flex flex-col items-center px-4 py-2 rounded-lg ${item.color}`}>
+                <span className="text-lg font-bold">{item.value}</span>
+                <span className="text-xs font-medium mt-1">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Institution Chart Example */}
+        <div className="mb-12">
+          <h3 className="text-xl font-bold mb-4">Institusi</h3>
+          <div className="flex gap-6 justify-center">
+            {institutionData.map((item, index) => (
+              <div key={index} className={`flex flex-col items-center px-4 py-2 rounded-lg ${item.color}`}>
+                <span className="text-lg font-bold">{item.value}</span>
+                <span className="text-xs font-medium mt-1">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Education Chart Example */}
+        <div className="mb-12">
+          <h3 className="text-xl font-bold mb-4">Pendidikan</h3>
+          <div className="flex gap-6 justify-center">
+            {educationData.map((item, index) => (
+              <div key={index} className={`flex flex-col items-center px-4 py-2 rounded-lg ${item.color}`}>
+                <span className="text-lg font-bold">{item.value}</span>
+                <span className="text-xs font-medium mt-1">{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Charts Grid */}

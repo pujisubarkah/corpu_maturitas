@@ -68,7 +68,7 @@ interface ExistingAnswer {
 
 interface SurveyData {
   id: number;
-  instansi_id: number;
+  instansi_id: number | null;
   nama_instansi: string;
   tahun: number;
   jawaban: ExistingAnswer[];
@@ -84,10 +84,7 @@ interface AnswerData {
   [key: string]: string | number | null;
 }
 
-interface MasterInstansiType {
-  id: number;
-  nama_instansi: string;
-}
+
 
 export default function VerificationDetailPage() {
   const params = useParams();
@@ -122,39 +119,15 @@ export default function VerificationDetailPage() {
 
           if (data.success && data.data) {
             console.log('API answer data:', data.data);
-            // Use instansiId directly from the answer data
-            const instansiIdFromData = data.data.instansiId;
-
-            console.log('Debug - userId:', data.data.userId);
-            console.log('Debug - instansiId from data:', instansiIdFromData);
-
-            if (!instansiIdFromData) {
-              setError(`User tidak memiliki instansi yang valid untuk diverifikasi. User ID: ${data.data.userId}, survei ID: ${surveyId}. Silakan hubungi administrator untuk mengatur instansi user.`);
+            // Verifikasi langsung berdasarkan userId, tanpa validasi instansi
+            const userIdFromData = data.data.userId;
+            if (!userIdFromData) {
+              setError(`User ID tidak ditemukan pada data survei. Survei ID: ${surveyId}.`);
               return;
             }
-
-            // Since users.instansiId should already be the masterInstansiType.id, use it directly
-            // But verify it exists in masterInstansiType
-            let mappedInstansiId: number | null = null;
-            let namaInstansi: string = data.data.fullName || 'Unknown';
-            try {
-              const masterResp = await fetch('/api/master-instansi-type');
-              const masterData = await masterResp.json();
-              if (masterData.success && Array.isArray(masterData.data)) {
-                const match = masterData.data.find((m: MasterInstansiType) => m.id === instansiIdFromData);
-                if (match) {
-                  mappedInstansiId = match.id;
-                  namaInstansi = match.nama_instansi || data.data.fullName || 'Unknown';
-                }
-              }
-            } catch (err) {
-              console.warn('Failed to fetch master instansi types:', err);
-            }
-
-            if (!mappedInstansiId) {
-              setError('Instansi tidak ditemukan di master instansi; tidak dapat memverifikasi.');
-              return;
-            }
+            // Nama instansi bisa diisi dari data survei jika ada, atau kosong
+            const namaInstansi: string = data.data.fullName || '';
+            const mappedInstansiId: number | null = null;
 
             // Convert flattened p1-p41 data to answers format and store original data
             const existingAnswers: Record<number, string> = {};
@@ -176,7 +149,7 @@ export default function VerificationDetailPage() {
 
             setExistingSurvey({
               id: data.data.surveiId,
-              instansi_id: mappedInstansiId, // Use the verified master instansi primary id
+              instansi_id: mappedInstansiId, // Tidak lagi diverifikasi, bisa null
               nama_instansi: namaInstansi,
               tahun: data.data.tahun,
               jawaban: [], // Will be populated from flattened p1-p41 data
@@ -388,7 +361,7 @@ export default function VerificationDetailPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instansiId: existingSurvey?.instansi_id,
+          userId: existingSurvey?.id, // pastikan ini adalah userId, jika bukan, ambil dari data survei yang benar
           tahun: existingSurvey?.tahun,
           jawaban: existingSurvey?.originalJawaban, // Original survey data
           bukti_dukung: buktiDukung, // Supporting evidence data

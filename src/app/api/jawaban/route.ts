@@ -29,30 +29,34 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const instansiId = url.searchParams.get('instansiId');
+    const userId = url.searchParams.get('userId');
     const tahun = url.searchParams.get('tahun');
 
-    if (!instansiId || !tahun) {
-      return NextResponse.json({
-        success: false,
-        error: 'instansiId dan tahun diperlukan'
-      }, { status: 400 });
+    let jawabanRecord;
+    if (!userId || !tahun) {
+      // Jika parameter tidak diberikan, ambil semua data
+      jawabanRecord = await db.select().from(jawaban);
+    } else {
+      // Cari jawaban berdasarkan user_id dan tahun
+      jawabanRecord = await db.select()
+        .from(jawaban)
+        .where(and(
+          eq(jawaban.user_id, parseInt(userId)),
+          eq(jawaban.tahun, parseInt(tahun))
+        ));
     }
-
-    // Cari jawaban berdasarkan instansi_id dan tahun
-    const jawabanRecord = await db.select()
-      .from(jawaban)
-      .where(and(
-        eq(jawaban.instansi_id, parseInt(instansiId)),
-        eq(jawaban.tahun, parseInt(tahun))
-      ));
 
     if (jawabanRecord.length === 0) {
       return NextResponse.json({ success: true, data: null });
     }
 
-    const result = jawabanRecord[0];
+    // Jika query tanpa filter, kembalikan array data
+    if (!userId || !tahun) {
+      return NextResponse.json({ success: true, data: jawabanRecord });
+    }
 
+    // Jika query dengan filter, kembalikan satu data
+    const result = jawabanRecord[0];
     return NextResponse.json({ success: true, data: result });
 
   } catch (error) {
