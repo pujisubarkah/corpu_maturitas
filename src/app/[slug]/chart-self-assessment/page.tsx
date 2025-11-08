@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import useSWR from 'swr';
 import { useSummaryKategori } from '../chart-by-category/useSWRFetcher';
 
 interface SurveyData {
@@ -19,15 +18,6 @@ interface SurveyData {
   }>;
   summary: {
     totalScore: number;
-  };
-}
-
-interface ApiResponse {
-  success: boolean;
-  data: SurveyData[];
-  pagination?: {
-    totalPages: number;
-    total: number;
   };
 }
 
@@ -79,23 +69,35 @@ export default function ChartSelfAssessmentPage() {
   };
 
   const handleMaturityLevelFilter = (level: string, checked: boolean) => {
-    setSelectedMaturityLevels(prev => {
-      const newSelection = checked 
-        ? [...prev, level]
-        : prev.filter(l => l !== level);
-      return newSelection;
-    });
-    setCurrentPage(1); // Reset to first page when filter changes
+    setLoading(true); // Show loading while filtering
+    setTimeout(() => { // Small delay to show loading state
+      setSelectedMaturityLevels(prev => {
+        const newSelection = checked 
+          ? [...prev, level]
+          : prev.filter(l => l !== level);
+        return newSelection;
+      });
+      setCurrentPage(1); // Reset to first page when filter changes
+      setLoading(false);
+    }, 100);
   };
 
   const handleSelectAll = () => {
-    setSelectedMaturityLevels(maturityLevels);
-    setCurrentPage(1);
+    setLoading(true);
+    setTimeout(() => {
+      setSelectedMaturityLevels(maturityLevels);
+      setCurrentPage(1);
+      setLoading(false);
+    }, 100);
   };
 
   const handleClearAll = () => {
-    setSelectedMaturityLevels([]);
-    setCurrentPage(1);
+    setLoading(true);
+    setTimeout(() => {
+      setSelectedMaturityLevels([]);
+      setCurrentPage(1);
+      setLoading(false);
+    }, 100);
   };
 
   // Use SWR for data fetching with caching
@@ -163,8 +165,12 @@ export default function ChartSelfAssessmentPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat data chart...</p>
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+            <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-r-purple-500 animate-spin animation-delay-75"></div>
+          </div>
+          <p className="text-gray-600 font-medium">Memuat data chart...</p>
+          <p className="text-sm text-gray-500 mt-2">Mohon tunggu sebentar</p>
         </div>
       </div>
     );

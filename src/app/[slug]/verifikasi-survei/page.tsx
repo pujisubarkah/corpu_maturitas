@@ -63,6 +63,7 @@ export default function VerificationSurveyPage() {
   // Process data when both APIs have loaded
   useEffect(() => {
     if (summaryData && verifData) {
+      setLoading(true); // Set loading while processing
       let surveysWithScores: SurveyData[] = [];
       if (summaryData.success && Array.isArray(summaryData.data)) {
         surveysWithScores = summaryData.data.map((survey: Record<string, unknown>) => {
@@ -110,11 +111,6 @@ export default function VerificationSurveyPage() {
       setLoading(false);
     }
   }, [summaryData, verifData, filterMaturitas]);
-
-  // Set loading to true when filters change
-  useEffect(() => {
-    setLoading(true);
-  }, [filterTahun, filterMaturitas]);
 
   const getMaturityLevel = (score: number): string => {
     if (score >= 0 && score <= 1000) return 'Initial';

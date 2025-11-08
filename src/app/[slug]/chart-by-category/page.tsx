@@ -68,6 +68,7 @@ interface InstitutionCategoryData {
 export default function ChartByCategoryPage() {
   const [institutionData, setInstitutionData] = useState<InstitutionCategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMaturityLevels, setSelectedMaturityLevels] = useState<string[]>([
     'Initial', 'Intermediate (Low)', 'Intermediate (High)', 'Mature', 'Advanced'
@@ -184,6 +185,31 @@ export default function ChartByCategoryPage() {
 
     fetchSurveyData();
   }, [currentPage]);
+
+  // Handle chart loading separately - show charts after table data is ready
+  useEffect(() => {
+    if (!loading && institutionData.length > 0) {
+      // Small delay to ensure table renders first, then show charts
+      const timer = setTimeout(() => {
+        setChartLoading(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    } else if (loading) {
+      setChartLoading(true);
+    }
+  }, [loading, institutionData]);
+
+  // Reset chart loading when filters change
+  useEffect(() => {
+    if (!loading) {
+      setChartLoading(true);
+      // Small delay to show loading state for filter changes
+      const timer = setTimeout(() => {
+        setChartLoading(false);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedMaturityLevels, loading]);
 
   if (loading) {
     return (
@@ -309,72 +335,81 @@ export default function ChartByCategoryPage() {
         </div>
 
         {/* Radar Charts for Each Institution */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-          {filteredInstitutionData.map((institution: InstitutionCategoryData, index: number) => {
-            // Prepare data for radar chart
-            const radarData = [
-              { category: 'Struktur ASN', fullName: 'Struktur ASN Corpu', score: institution.strukturAsn, verifikasi: institution.verifikasiKategori?.strukturAsn || 0 },
-              { category: 'Manajemen Pengetahuan', fullName: 'Manajemen Pengetahuan', score: institution.manajemenPengetahuan, verifikasi: institution.verifikasiKategori?.manajemenPengetahuan || 0 },
-              { category: 'Forum Pembelajaran', fullName: 'Forum Pembelajaran', score: institution.forumPembelajaran, verifikasi: institution.verifikasiKategori?.forumPembelajaran || 0 },
-              { category: 'Sistem Pembelajaran', fullName: 'Sistem Pembelajaran', score: institution.sistemPembelajaran, verifikasi: institution.verifikasiKategori?.sistemPembelajaran || 0 },
-              { category: 'Strategi Pembelajaran', fullName: 'Strategi Pembelajaran', score: institution.strategiPembelajaran, verifikasi: institution.verifikasiKategori?.strategiPembelajaran || 0 },
-              { category: 'Teknologi Pembelajaran', fullName: 'Teknologi Pembelajaran', score: institution.teknologiPembelajaran, verifikasi: institution.verifikasiKategori?.teknologiPembelajaran || 0 },
-              { category: 'Integrasi Sistem', fullName: 'Integrasi Sistem', score: institution.integrasiSistem, verifikasi: institution.verifikasiKategori?.integrasiSistem || 0 },
-              { category: 'Evaluasi ASN', fullName: 'Evaluasi ASN Corpu', score: institution.evaluasiAsn, verifikasi: institution.verifikasiKategori?.evaluasiAsn || 0 }
-            ];
+        {chartLoading ? (
+          <div className="col-span-full flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Memuat grafik radar...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+            {filteredInstitutionData.map((institution: InstitutionCategoryData, index: number) => {
+              // Prepare data for radar chart
+              const radarData = [
+                { category: 'Struktur ASN', fullName: 'Struktur ASN Corpu', score: institution.strukturAsn, verifikasi: institution.verifikasiKategori?.strukturAsn || 0 },
+                { category: 'Manajemen Pengetahuan', fullName: 'Manajemen Pengetahuan', score: institution.manajemenPengetahuan, verifikasi: institution.verifikasiKategori?.manajemenPengetahuan || 0 },
+                { category: 'Forum Pembelajaran', fullName: 'Forum Pembelajaran', score: institution.forumPembelajaran, verifikasi: institution.verifikasiKategori?.forumPembelajaran || 0 },
+                { category: 'Sistem Pembelajaran', fullName: 'Sistem Pembelajaran', score: institution.sistemPembelajaran, verifikasi: institution.verifikasiKategori?.sistemPembelajaran || 0 },
+                { category: 'Strategi Pembelajaran', fullName: 'Strategi Pembelajaran', score: institution.strategiPembelajaran, verifikasi: institution.verifikasiKategori?.strategiPembelajaran || 0 },
+                { category: 'Teknologi Pembelajaran', fullName: 'Teknologi Pembelajaran', score: institution.teknologiPembelajaran, verifikasi: institution.verifikasiKategori?.teknologiPembelajaran || 0 },
+                { category: 'Integrasi Sistem', fullName: 'Integrasi Sistem', score: institution.integrasiSistem, verifikasi: institution.verifikasiKategori?.integrasiSistem || 0 },
+                { category: 'Evaluasi ASN', fullName: 'Evaluasi ASN Corpu', score: institution.evaluasiAsn, verifikasi: institution.verifikasiKategori?.evaluasiAsn || 0 }
+              ];
 
-            return (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle className="text-lg">{institution.name}</CardTitle>
-                  <div className="text-sm text-gray-600">
-                    Total Skor: {institution.totalScore} | Tingkat: {institution.maturityLevel}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid />
-                      <PolarAngleAxis
-                        dataKey="category"
-                        tick={{ fontSize: 10 }}
-                      />
-                      <PolarRadiusAxis
-                        angle={90}
-                        domain={[0, 'dataMax']}
-                        tick={{ fontSize: 8 }}
-                      />
-                      <Radar
-                        name="Self Assessment"
-                        dataKey="score"
-                        stroke="#3b82f6"
-                        fill="#3b82f6"
-                        fillOpacity={0.3}
-                        strokeWidth={2}
-                      />
-                      <Radar
-                        name="Verifikasi"
-                        dataKey="verifikasi"
-                        stroke="#ef4444"
-                        fill="#ef4444"
-                        fillOpacity={0.1}
-                        strokeWidth={2}
-                      />
-                      <Tooltip
-                        formatter={(value: number, name: string) => [value, name]}
-                        labelFormatter={(label: string, payload: readonly { payload?: { fullName?: string } }[]) => {
-                          return payload && payload.length > 0 && payload[0]?.payload?.fullName
-                            ? payload[0].payload.fullName
-                            : label;
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+              return (
+                <Card key={index}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{institution.name}</CardTitle>
+                    <div className="text-sm text-gray-600">
+                      Total Skor: {institution.totalScore} | Tingkat: {institution.maturityLevel}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <RadarChart data={radarData}>
+                        <PolarGrid />
+                        <PolarAngleAxis
+                          dataKey="category"
+                          tick={{ fontSize: 10 }}
+                        />
+                        <PolarRadiusAxis
+                          angle={90}
+                          domain={[0, 'dataMax']}
+                          tick={{ fontSize: 8 }}
+                        />
+                        <Radar
+                          name="Self Assessment"
+                          dataKey="score"
+                          stroke="#3b82f6"
+                          fill="#3b82f6"
+                          fillOpacity={0.3}
+                          strokeWidth={2}
+                        />
+                        <Radar
+                          name="Verifikasi"
+                          dataKey="verifikasi"
+                          stroke="#ef4444"
+                          fill="#ef4444"
+                          fillOpacity={0.1}
+                          strokeWidth={2}
+                        />
+                        <Tooltip
+                          formatter={(value: number, name: string) => [value, name]}
+                          labelFormatter={(label: string, payload: readonly { payload?: { fullName?: string } }[]) => {
+                            return payload && payload.length > 0 && payload[0]?.payload?.fullName
+                              ? payload[0].payload.fullName
+                              : label;
+                          }}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
